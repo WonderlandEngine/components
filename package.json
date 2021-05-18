@@ -14,7 +14,8 @@
     "esbuild": "^0.11.14"
   },
   "scripts": {
-    "build": "esbuild index.js --minify --bundle --sourcemap --outfile=../editor-components-bundle.js"
+    "build": "esbuild index.js --minify --bundle --sourcemap --outfile=../editor-components-bundle.js",
+    "watch": "esbuild index.js --minify --bundle --sourcemap --outfile=../editor-components-bundle.js --watch"
   },
   "repository": {
     "type": "git",
