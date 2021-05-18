@@ -56,15 +56,11 @@ WL.registerComponent('hand-tracking', {
             this.joints[this.ORDERED_JOINTS[0]] = new WL.Object(jointIds[0]);
 
             /* Index in ORDERED_JOINTS that we are mapping to our joints */
-            let fingerIndex = 1;
             /* Skip thumb0 joint, start at thumb1 */
-            for(let j = 2; j < jointIds.length; ++j, ++fingerIndex) {
+            for(let j = 0; j < jointIds.length; ++j) {
                 let joint = new WL.Object(jointIds[j]);
                 /* tip joints are only needed for joint rendering, so we skip those while mapping */
-                if(joint.name.endsWith('index_null') || joint.name.endsWith('middle_null') || joint.name.endsWith('thumb_null')) {
-                    ++fingerIndex;
-                }
-                this.joints[this.ORDERED_JOINTS[fingerIndex]] = joint;
+                this.joints[joint.name] = joint;
             }
 
             /* If we have a hand skin, no need to spawn the joints-based one */
@@ -129,9 +125,9 @@ WL.registerComponent('hand-tracking', {
                             joint.resetTranslationRotation();
 
                             joint.translate([
-                                100*(jointPose.transform.position.x - invTranslation[0]),
-                                100*(jointPose.transform.position.y - invTranslation[1]),
-                                100*(jointPose.transform.position.z - invTranslation[2])]);
+                                (jointPose.transform.position.x - invTranslation[0]),
+                                (jointPose.transform.position.y - invTranslation[1]),
+                                (jointPose.transform.position.z - invTranslation[2])]);
                             joint.rotate(invRotation);
                             joint.rotateObject([
                                 jointPose.transform.orientation.x,
