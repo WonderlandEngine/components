@@ -3,8 +3,7 @@
  * depending on whether a VR/AR session is active.
  *
  * Useful for hiding controllers until the user enters VR for example.
- *
- * **Warning**: This component currently can lead to unexpected behaviour.*/
+ */
 WL.registerComponent("vr-mode-active-switch", {
     /** When components should be active: In VR or when not in VR */
     activateComponents: {type: WL.Type.Enum, values: ["in VR", "in non-VR"], default: "in VR"},
@@ -23,7 +22,8 @@ WL.registerComponent("vr-mode-active-switch", {
     },
 
     getComponents: function(obj) {
-        this.components = this.components.concat(obj.getComponents());
+        const comps = obj.getComponents().filter(c => c.type != "vr-mode-active-switch");
+        this.components = this.components.concat(comps);
 
         if(this.affectChildren) {
             let children = obj.children;
@@ -34,16 +34,19 @@ WL.registerComponent("vr-mode-active-switch", {
     },
 
     setComponentsActive: function(active) {
-        for (let i = 0; i < this.components.length; ++i) {
-            this.components[i].active = active;
+        const comps = this.components;
+        for (let i = 0; i < comps.length; ++i) {
+            comps[i].active = active;
         }
     },
 
     onXRSessionStart: function() {
+        if(!this.active) return;
         this.setComponentsActive(this.activateComponents == 0);
     },
 
     onXRSessionEnd: function() {
+        if(!this.active) return;
         this.setComponentsActive(this.activateComponents != 0);
     },
 }
