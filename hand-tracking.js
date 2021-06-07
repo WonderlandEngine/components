@@ -9,6 +9,13 @@ import {vec3,quat,quat2} from 'gl-matrix';
  * to `this.joints` - an array of [WL.Object](/jsapi/object) and use the joint
  * indices listed [in the WebXR Hand Input specification](https://immersive-web.github.io/webxr-hand-input/#skeleton-joints-section).
  *
+ * It is often desired to use either hand tracking or controllers, not both.
+ * This component provides `deactivateChildrenWithoutPose` to hide the hand
+ * tracking visualization if no pose is available and `controllerToDeactivate`
+ * for disabling another object once a hand tracking pose *is* available.
+ * Outside of XR sessions, tracking or controllers are neither enabled nor disabled
+ * to play well with the [vr-mode-active-switch](#vr-mode-active-switch) component.
+ *
  * **Requirements:**
  *  - To use hand-tracking, enable "joint tracking" in `chrome://flags` on
  *    Oculus Browser for Oculus Quest/Oculus Quest 2.
@@ -18,12 +25,16 @@ import {vec3,quat,quat2} from 'gl-matrix';
 WL.registerComponent('hand-tracking', {
     /** Handedness determining whether to receive tracking input from right or left hand */
     handedness: {type: WL.Type.Enum, default: 'left', values: ['left', 'right']},
-    /** (optional) Skinned mesh to use for display */
+    /** (optional) Mesh to use to visualize joints */
     jointMesh: {type: WL.Type.Mesh, default: null},
     /** Material to use for display. Applied to either the spawned skinned mesh or the joint spheres. */
     jointMaterial: {type: WL.Type.Material, default: null},
     /** (optional) Skin to apply tracked joint poses to. If not present, joint spheres will be used for display instead. */
-    handSkin: {type: WL.Type.Skin, default: null}
+    handSkin: {type: WL.Type.Skin, default: null},
+    /** Deactivate children if no pose was tracked */
+    deactivateChildrenWithoutPose: {type: WL.Type.Bool, default: true},
+    /** Controller objects to activate including children if no pose is available */
+    controllerToDeactivate: {type: WL.Type.Object},
 }, {
     ORDERED_JOINTS: [
         "wrist",
@@ -42,6 +53,7 @@ WL.registerComponent('hand-tracking', {
         this.refSpace = null;
         /* Whether last update had a hand pose */
         this.hasPose = false;
+        this._childrenActive = true;
 
         if(!('XRHand' in window)) {
             console.warn("WebXR Hand Tracking not supported by this browser.");
@@ -78,10 +90,13 @@ WL.registerComponent('hand-tracking', {
             this.joints[this.ORDERED_JOINTS[j]] = joint;
         }
     },
+
     update: function(dt) {
         if(!this.session) {
             if(WL.xrSession) this.setupVREvents(WL.xrSession);
         }
+
+        if(!this.session) return;
 
         this.hasPose = false;
         if(this.session && this.session.inputSources && this.refSpace) {
@@ -156,6 +171,40 @@ WL.registerComponent('hand-tracking', {
                     }
                 }
             }
+        }
+
+        if(!this.hasPose && this._childrenActive) {
+            this._childrenActive = false;
+
+            if(this.deactivateChildrenWithoutPose) {
+                this.setChildrenActive(false);
+            }
+
+            if(this.controllerToDeactivate) {
+                this.controllerToDeactivate.active = true;
+                this.setChildrenActive(true, this.controllerToDeactivate);
+            }
+        } else if(this.hasPose && !this._childrenInactive) {
+            this._childrenActive = true;
+
+            if(this.deactivateChildrenWithoutPose) {
+                this.setChildrenActive(true);
+            }
+
+            if(this.controllerToDeactivate) {
+                this.controllerToDeactivate.active = false;
+                this.setChildrenActive(false, this.controllerToDeactivate);
+            }
+        }
+    },
+
+    setChildrenActive: function(active, object) {
+        object = object || this.object;
+
+        const children = object.children;
+        for(const o of children) {
+            o.active = active;
+            this.setChildrenActive(active, o);
         }
     },
 
