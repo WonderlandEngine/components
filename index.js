@@ -9,7 +9,7 @@ require('./howler-audio-listener.js');
 require('./howler-audio-source.js');
 require('./image-texture.js');
 require('./mouse-look.js');
-require('./teleport-component.js');
+require('./teleport.js');
 require('./video-texture.js');
 require('./vr-mode-active-switch.js');
 require('./wasd-controls.js');
