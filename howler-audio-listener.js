@@ -1,4 +1,4 @@
-import Howler from 'howler';
+import 'howler';
 /**
  * (Spatial) audio listener based on [Howler.js](https://howlerjs.com/).
  *
