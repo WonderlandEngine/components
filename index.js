@@ -1,3 +1,6 @@
+/* Backwards compatiblity for pre 0.8.5 */
+window.glMatrix = require('gl-matrix');
+
 require('./8thwall-camera.js');
 require('./cursor-target.js');
 require('./cursor.js');
