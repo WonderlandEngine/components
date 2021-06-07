@@ -18,6 +18,7 @@ WL.registerComponent('cursor', {
     collisionGroup: {type: WL.Type.Int, default: 1},
     /** (optional) Object that visualizes the cursor's ray. */
     cursorRayObject: {type: WL.Type.Object, default: null},
+    cursorRayScalingAxis: {type: WL.Type.Enum, values: ['x', 'y', 'z', 'none'], default: 'z'},
     /** (optional) Object that visualizes the cursor's hit location. */
     cursorObject: {type: WL.Type.Object, default: null},
     /** Handedness for VR cursors to accept trigger events only from respective controller. */
@@ -70,6 +71,16 @@ WL.registerComponent('cursor', {
         this.hoveringObject = null;
 
         WL.onXRSessionStart.push(this.setupVREvents.bind(this));
+
+        if(this.cursorRayObject) {
+            /* Set ray to a good default distance of the cursor of 1m */
+            this.object.getTranslationWorld(this.origin);
+            this.object.getForward(this.direction);
+            this._setCursorRayTransform([
+                this.origin[0] + this.direction[0],
+                this.origin[1] + this.direction[1],
+                this.origin[2] + this.direction[2]]);
+        }
     },
     onViewportResize: function() {
         if(!this.viewComponent) return;
@@ -93,12 +104,16 @@ WL.registerComponent('cursor', {
         this.globalTarget.onClick(o, this);
     },
 
-    _setCursorRayTransform: function(hitPosition){
+    _setCursorRayTransform: function(hitPosition) {
         if(!this.cursorRayObject) return;
         let dist = glMatrix.vec3.dist(this.origin, hitPosition);
         this.cursorRayObject.setTranslationLocal([0.0, 0.0, -dist / 2]);
-        this.cursorRayObject.resetScaling();
-        this.cursorRayObject.scale([0.002, 0.002, dist / 2]);
+        if(this.cursorRayScalingAxis != 4) {
+            this.cursorRayObject.resetScaling();
+            const scaling = [1.0, 1.0, 1.0];
+            scaling[this.cursorRayScalingAxis] = dist/2;
+            this.cursorRayObject.scale(scaling);
+        }
     },
 
     _setCursorVisibility: function(visible) {
@@ -166,7 +181,7 @@ WL.registerComponent('cursor', {
                 this.hoveringObject = rayHit.objects[0];
                 WL.canvas.style.cursor = "pointer";
                 let cursorTarget = this.hoveringObject.getComponent("cursor-target");
-                if(cursorTarget) cursorTarget.onHover(this);
+                if(cursorTarget) cursorTarget.onHover(this.hoveringObject, this);
                 this.globalTarget.onHover(this.hoveringObject, this);
             }
         } else if(this.hoveringObject && rayHit.hitCount == 0) {
