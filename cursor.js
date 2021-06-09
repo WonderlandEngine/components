@@ -50,6 +50,10 @@ WL.registerComponent('cursor', {
 
         this.globalTarget = this.object.addComponent('cursor-target');
 
+        if(this.cursorRayObject) {
+            this.cursorRayScale = new Float32Array(3);
+            this.cursorRayScale.set(this.cursorRayObject.scalingLocal);
+        }
         this.origin = new Float32Array(3);
         this.cursorObjScale = new Float32Array(3);
         this.direction = [0, 0, 0];
@@ -111,9 +115,8 @@ WL.registerComponent('cursor', {
         this.cursorRayObject.setTranslationLocal([0.0, 0.0, -dist / 2]);
         if(this.cursorRayScalingAxis != 4) {
             this.cursorRayObject.resetScaling();
-            const scaling = [1.0, 1.0, 1.0];
-            scaling[this.cursorRayScalingAxis] = dist/2;
-            this.cursorRayObject.scale(scaling);
+            this.cursorRayScale[this.cursorRayScalingAxis] = dist/2;
+            this.cursorRayObject.scale(this.cursorRayScale);
         }
     },
 
@@ -162,6 +165,7 @@ WL.registerComponent('cursor', {
                 this._setCursorVisibility(true);
                 this.cursorObject.setTranslationWorld(this.cursorPos);
                 this._setCursorRayTransform(this.cursorPos)
+				
             } else {
                 this._setCursorVisibility(false);
             }
