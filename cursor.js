@@ -50,10 +50,6 @@ WL.registerComponent('cursor', {
 
         this.globalTarget = this.object.addComponent('cursor-target');
 
-        if(this.cursorRayObject) {
-            this.cursorRayScale = new Float32Array(3);
-            this.cursorRayScale.set(this.cursorRayObject.scalingLocal);
-        }
         this.origin = new Float32Array(3);
         this.cursorObjScale = new Float32Array(3);
         this.direction = [0, 0, 0];
@@ -79,6 +75,8 @@ WL.registerComponent('cursor', {
 
         if(this.cursorRayObject) {
             /* Set ray to a good default distance of the cursor of 1m */
+            this.cursorRayScale = new Float32Array(3);
+            this.cursorRayScale.set(this.cursorRayObject.scalingLocal);
             this.object.getTranslationWorld(this.origin);
             this.object.getForward(this.direction);
             this._setCursorRayTransform([
@@ -164,8 +162,7 @@ WL.registerComponent('cursor', {
             if(this.hoveringObject && (this.cursorPos[0] != 0 || this.cursorPos[1] != 0 || this.cursorPos[2] != 0)) {
                 this._setCursorVisibility(true);
                 this.cursorObject.setTranslationWorld(this.cursorPos);
-                this._setCursorRayTransform(this.cursorPos)
-				
+                this._setCursorRayTransform(this.cursorPos);
             } else {
                 this._setCursorVisibility(false);
             }
