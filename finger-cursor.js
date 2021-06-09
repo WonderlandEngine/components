@@ -4,6 +4,8 @@
  *
  * **Requirements:**
  *  - A collision component (usually a sphere with `0.05` radius) on the same object
+ *
+ * @since 0.8.5
  */
 WL.registerComponent('finger-cursor', {
 }, {

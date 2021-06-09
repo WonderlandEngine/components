@@ -18,6 +18,7 @@ WL.registerComponent('cursor', {
     collisionGroup: {type: WL.Type.Int, default: 1},
     /** (optional) Object that visualizes the cursor's ray. */
     cursorRayObject: {type: WL.Type.Object, default: null},
+    /** Axis along which to scale the `cursorRayObject`. */
     cursorRayScalingAxis: {type: WL.Type.Enum, values: ['x', 'y', 'z', 'none'], default: 'z'},
     /** (optional) Object that visualizes the cursor's hit location. */
     cursorObject: {type: WL.Type.Object, default: null},

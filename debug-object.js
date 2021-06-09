@@ -7,6 +7,7 @@
  * Mainly used by engine developers for debug purposes or as example code.
  */
 WL.registerComponent('debug-object', {
+    /** A second object to print the name of */
     obj: {type: WL.Type.Object}
 }, {
     start: function() {

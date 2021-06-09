@@ -1,7 +1,7 @@
 /**
  * Function to convert a Euler in YXZ order to a quaternion
  */
-var quatFromEulerYXZ = function (out, x, y, z) {
+function quatFromEulerYXZ (out, x, y, z) {
     const c1 = Math.cos(x/2);
     const c2 = Math.cos(y/2);
     const c3 = Math.cos(z/2);
@@ -17,8 +17,8 @@ var quatFromEulerYXZ = function (out, x, y, z) {
 };
 
 /**
- * Retrieve device orientation from a mobile device and orient the object
- * accordingly.
+ * Retrieve device orientation from a mobile device and set the object's
+ * orientation accordingly.
  *
  * Useful for magic window experiences.
  */
