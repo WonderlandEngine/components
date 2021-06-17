@@ -74,6 +74,9 @@ WL.registerComponent('cursor', {
         WL.onXRSessionStart.push(this.setupVREvents.bind(this));
 
         if(this.cursorRayObject) {
+            this.cursorRayScale = new Float32Array(3);
+            this.cursorRayScale.set(this.cursorRayObject.scalingLocal);
+
             /* Set ray to a good default distance of the cursor of 1m */
             this.object.getTranslationWorld(this.origin);
             this.object.getForward(this.direction);
@@ -111,9 +114,8 @@ WL.registerComponent('cursor', {
         this.cursorRayObject.setTranslationLocal([0.0, 0.0, -dist / 2]);
         if(this.cursorRayScalingAxis != 4) {
             this.cursorRayObject.resetScaling();
-            const scaling = [1.0, 1.0, 1.0];
-            scaling[this.cursorRayScalingAxis] = dist/2;
-            this.cursorRayObject.scale(scaling);
+            this.cursorRayScale[this.cursorRayScalingAxis] = dist/2;
+            this.cursorRayObject.scale(this.cursorRayScale);
         }
     },
 
@@ -161,7 +163,7 @@ WL.registerComponent('cursor', {
             if(this.hoveringObject && (this.cursorPos[0] != 0 || this.cursorPos[1] != 0 || this.cursorPos[2] != 0)) {
                 this._setCursorVisibility(true);
                 this.cursorObject.setTranslationWorld(this.cursorPos);
-                this._setCursorRayTransform(this.cursorPos)
+                this._setCursorRayTransform(this.cursorPos);
             } else {
                 this._setCursorVisibility(false);
             }
