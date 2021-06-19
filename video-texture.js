@@ -5,6 +5,7 @@
  * a new frame is available. This component handles the
  * detection of a new frame and updates the texture to
  * reflect the video's current frame.
+ * Only "Phong Opaque Textured" and "Flat Opaque Textured" materials are supported.
  *
  * The video can be accessed through `this.video`.
  *
@@ -42,9 +43,9 @@ WL.registerComponent('video-texture', {
     applyTexture: function() {
         const mat = this.material;
         this.texture = new WL.Texture(this.video);
-        if(mat.shader == "Flat Textured") {
+        if(mat.shader == "Flat Opaque Textured") {
             mat.flatTexture = this.texture;
-        } else if(mat.shader == "Phong Textured") {
+        } else if(mat.shader == "Phong Opaque Textured") {
             mat.diffuseTexture = this.texture;
         } else {
             console.error("Shader", mat.shader, "not supported by video-texture");
