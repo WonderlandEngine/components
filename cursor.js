@@ -1,3 +1,4 @@
+import {vec3, mat4} from 'gl-matrix';
 /**
  * 3D cursor for desktop/mobile/VR.
  *
@@ -62,7 +63,7 @@ WL.registerComponent('cursor', {
             WL.canvas.addEventListener("mousemove", this.onMouseMove.bind(this));
 
             this.projectionMatrix = new Float32Array(16);
-            glMatrix.mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
+            mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
             WL.canvas.addEventListener("resize", this.onViewportResize.bind(this));
         }
         this.isHovering = false;
@@ -90,7 +91,7 @@ WL.registerComponent('cursor', {
         if(!this.viewComponent) return;
         /* Projection matrix will change if the viewport is resized, which will affect the
          * projection matrix because of the aspect ratio. */
-        glMatrix.mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
+        mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
     },
     /** 'click' event listener */
     onClick: function(e) {
@@ -110,7 +111,7 @@ WL.registerComponent('cursor', {
 
     _setCursorRayTransform: function(hitPosition) {
         if(!this.cursorRayObject) return;
-        let dist = glMatrix.vec3.dist(this.origin, hitPosition);
+        let dist = vec3.dist(this.origin, hitPosition);
         this.cursorRayObject.setTranslationLocal([0.0, 0.0, -dist / 2]);
         if(this.cursorRayScalingAxis != 4) {
             this.cursorRayObject.resetScaling();
@@ -254,10 +255,10 @@ WL.registerComponent('cursor', {
         this.object.getTranslationWorld(this.origin);
 
         /* Reverse-project the direction into view space */
-        glMatrix.vec3.transformMat4(this.direction, this.direction,
+        vec3.transformMat4(this.direction, this.direction,
             this.projectionMatrix);
-        glMatrix.vec3.normalize(this.direction, this.direction);
-        glMatrix.vec3.transformQuat(this.direction, this.direction, this.object.transformWorld);
+        vec3.normalize(this.direction, this.direction);
+        vec3.transformQuat(this.direction, this.direction, this.object.transformWorld);
         let rayHit = this.rayHit = (this.rayCastMode == 0) ?
             WL.scene.rayCast(this.origin, this.direction, this.collisionMask) :
             WL.physics.rayCast(this.origin, this.direction, this.collisionMask, this.maxDistance);
