@@ -27,6 +27,8 @@ WL.registerComponent('cursor', {
     handedness: {type: WL.Type.Enum, values: ['input component', 'left', 'right', 'none'], default: 'input component'},
     /** Mode for raycasting, whether to use PhysX or simple collision components */
     rayCastMode: {type: WL.Type.Enum, values: ['collision', 'physx'], default: 'collision'},
+    /** (optional) Should cursor style be changed when hovering? */
+    styleCursor: {type: WL.Type.Bool, default: true},
   }, {
     init: function() {
         /* VR session cache, in case in VR */
@@ -177,14 +179,14 @@ WL.registerComponent('cursor', {
             if(!this.hoveringObject || !this.hoveringObject.equals(rayHit.objects[0])) {
                 /* Unhover previous, if exists */
                 if(this.hoveringObject) {
-                    let cursorTarget = this.hoveringObject.getComponent("cursor-target");
+                    const cursorTarget = this.hoveringObject.getComponent("cursor-target");
                     if(cursorTarget) cursorTarget.onUnhover(this.hoveringObject, this);
                     this.globalTarget.onUnhover(this.hoveringObject, this);
                 }
 
                 /* Hover new object */
                 this.hoveringObject = rayHit.objects[0];
-                WL.canvas.style.cursor = "pointer";
+                if(this.styleCursor) WL.canvas.style.cursor = "pointer";
                 let cursorTarget = this.hoveringObject.getComponent("cursor-target");
                 if(cursorTarget) {
                     this.hoveringObjectTarget = cursorTarget;
@@ -197,11 +199,12 @@ WL.registerComponent('cursor', {
                 this.hoveringObjectTarget.onMove(this.hoveringObject, this);
             }
         } else if(this.hoveringObject && rayHit.hitCount == 0) {
-            let cursorTarget = this.hoveringObject.getComponent("cursor-target");
+            const cursorTarget = this.hoveringObject.getComponent("cursor-target");
             if(cursorTarget) cursorTarget.onUnhover(this.hoveringObject, this);
             this.globalTarget.onUnhover(this.hoveringObject, this);
             this.hoveringObject = null;
             this.hoveringObjectTarget = null;
+            if(this.styleCursor) WL.canvas.style.cursor = "default";
         }
     },
 
