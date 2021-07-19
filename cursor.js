@@ -2,8 +2,9 @@ import {vec3, mat4} from 'gl-matrix';
 /**
  * 3D cursor for desktop/mobile/VR.
  *
- * Implements a ray-casting cursor into the scene. To react to clicking/hover/unhover
- * use a [cursor-target](#cursor-target).
+ * Implements a ray-casting cursor into the scene. To react to
+ * clicking/hover/unhover/cursor down/cursor up/move use a
+ * [cursor-target](#cursor-target).
  *
  * For VR, the ray is cast in direction of
  * [this.object.getForward()](/jsapi/object/#getforward). For desktop and mobile, the
@@ -62,7 +63,9 @@ WL.registerComponent('cursor', {
          * otherwise just use the objects transformation */
         if(this.viewComponent != null) {
             WL.canvas.addEventListener("click", this.onClick.bind(this));
-            WL.canvas.addEventListener("mousemove", this.onMouseMove.bind(this));
+            WL.canvas.addEventListener("pointermove", this.onPointerMove.bind(this));
+            WL.canvas.addEventListener("pointerdown", this.onPointerDown.bind(this));
+            WL.canvas.addEventListener("pointerup", this.onPointerUp.bind(this));
 
             this.projectionMatrix = new Float32Array(16);
             mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
@@ -70,6 +73,8 @@ WL.registerComponent('cursor', {
         }
         this.isHovering = false;
         this.visible = true;
+        this.isDown = false;
+        this.lastIsDown = false;
 
         this.cursorPos = new Float32Array(3);
         this.hoveringObject = null;
@@ -95,25 +100,10 @@ WL.registerComponent('cursor', {
          * projection matrix because of the aspect ratio. */
         mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
     },
-    /** 'click' event listener */
-    onClick: function(e) {
-        let bounds = e.target.getBoundingClientRect();
-        let rayHit = this.updateMousePos(e.clientX, e.clientY, bounds.width, bounds.height);
-        if(rayHit.hitCount > 0) {
-            let o = rayHit.objects[0];
-            this._clickOn(o);
-        }
-    },
-    /** Click on given object, which executes the cursor-target onClick callbacks */
-    _clickOn: function(o) {
-        let cursorTarget = o.getComponent("cursor-target", 0);
-        if(cursorTarget) cursorTarget.onClick(o, this);
-        this.globalTarget.onClick(o, this);
-    },
 
     _setCursorRayTransform: function(hitPosition) {
         if(!this.cursorRayObject) return;
-        let dist = vec3.dist(this.origin, hitPosition);
+        const dist = vec3.dist(this.origin, hitPosition);
         this.cursorRayObject.setTranslationLocal([0.0, 0.0, -dist / 2]);
         if(this.cursorRayScalingAxis != 4) {
             this.cursorRayObject.resetScaling();
@@ -138,6 +128,10 @@ WL.registerComponent('cursor', {
     },
 
     update: function() {
+        this.doUpdate(false);
+    },
+
+    doUpdate: function(doClick) {
         /* If in VR, set the cursor ray based on object transform */
         if(this.session) {
             /* Since Google Cardboard tap is registered as arTouchDown without a gamepad, we need to check for gamepad presence */
@@ -150,7 +144,7 @@ WL.registerComponent('cursor', {
                 this.object.getTranslationWorld(this.origin);
                 this.object.getForward(this.direction);
             }
-            let rayHit = this.rayHit = (this.rayCastMode == 0) ?
+            const rayHit = this.rayHit = (this.rayCastMode == 0) ?
                 WL.scene.rayCast(this.origin, this.direction, this.collisionMask) :
                 WL.physics.rayCast(this.origin, this.direction, this.collisionMask, this.maxDistance);
 
@@ -160,7 +154,7 @@ WL.registerComponent('cursor', {
                 this.cursorPos.fill(0);
             }
 
-            this.hoverBehaviour(rayHit);
+            this.hoverBehaviour(rayHit, doClick);
         }
 
         if(this.cursorObject) {
@@ -174,7 +168,7 @@ WL.registerComponent('cursor', {
         }
     },
 
-    hoverBehaviour: function(rayHit) {
+    hoverBehaviour: function(rayHit, doClick) {
         if(rayHit.hitCount > 0) {
             if(!this.hoveringObject || !this.hoveringObject.equals(rayHit.objects[0])) {
                 /* Unhover previous, if exists */
@@ -187,6 +181,7 @@ WL.registerComponent('cursor', {
                 /* Hover new object */
                 this.hoveringObject = rayHit.objects[0];
                 if(this.styleCursor) WL.canvas.style.cursor = "pointer";
+
                 let cursorTarget = this.hoveringObject.getComponent("cursor-target");
                 if(cursorTarget) {
                     this.hoveringObjectTarget = cursorTarget;
@@ -197,6 +192,30 @@ WL.registerComponent('cursor', {
 
             if(this.hoveringObjectTarget) {
                 this.hoveringObjectTarget.onMove(this.hoveringObject, this);
+                const cursorTarget = this.hoveringObject.getComponent("cursor-target");
+                if(cursorTarget) cursorTarget.onHover(this.hoveringObject, this);
+                this.globalTarget.onHover(this.hoveringObject, this);
+            }
+
+            /* Cursor up/down */
+            const cursorTarget = this.hoveringObject.getComponent("cursor-target");
+            if(this.isDown !== this.lastIsDown) {
+                if(this.isDown) {
+                    /* Down */
+                    if(cursorTarget) cursorTarget.onCursorDown(this.hoveringObject, this);
+                    this.globalTarget.onCursorDown(this.hoveringObject, this);
+                }
+                else {
+                    /* Up */
+                    if(cursorTarget) cursorTarget.onCursorUp(this.hoveringObject, this);
+                    this.globalTarget.onCursorUp(this.hoveringObject, this);
+                }
+            }
+
+            /* Click */
+            if(doClick) {
+                if(cursorTarget) cursorTarget.onClick(this.hoveringObject, this);
+                this.globalTarget.onClick(this.hoveringObject, this);
             }
         } else if(this.hoveringObject && rayHit.hitCount == 0) {
             const cursorTarget = this.hoveringObject.getComponent("cursor-target");
@@ -206,6 +225,8 @@ WL.registerComponent('cursor', {
             this.hoveringObjectTarget = null;
             if(this.styleCursor) WL.canvas.style.cursor = "default";
         }
+
+        this.lastIsDown = this.isDown;
     },
 
     /**
@@ -224,31 +245,68 @@ WL.registerComponent('cursor', {
             this.session = null;
         }.bind(this));
 
-        s.addEventListener('select', function(e) {
-            if(e.inputSource.handedness != this.handedness) return;
-            if(this.hoveringObject) {
-                this._clickOn(this.hoveringObject);
-            }
-        }.bind(this));
-
-        s.addEventListener('selectstart', this.onTouchStart.bind(this));
-        s.addEventListener('selectend', this.onTouchEnd.bind(this));
+        s.addEventListener('select', this.onSelect.bind(this));
+        s.addEventListener('selectstart', this.onSelectStart.bind(this));
+        s.addEventListener('selectend', this.onSelectEnd.bind(this));
     },
-    onTouchStart: function(e) {
+
+    /** 'select' event listener */
+    onSelect: function(e) {
+        if(e.inputSource.handedness != this.handedness) return;
+        this.doUpdate(true);
+    },
+
+    /** 'selectstart' event listener */
+    onSelectStart: function(e) {
         this.arTouchDown = true;
         /* After AR session was entered, the projection matrix changed */
         this.onViewportResize();
+        if(e.inputSource.handedness == this.handedness) this.isDown = true;
     },
-    onTouchEnd: function(e) {
+
+    /** 'selectend' event listener */
+    onSelectEnd: function(e) {
         this.arTouchDown = false;
+        if(e.inputSource.handedness == this.handedness) this.isDown = false;
     },
 
-    /** 'mousemove' event listener */
-    onMouseMove: function (e) {
-        let bounds = e.target.getBoundingClientRect();
-        let rayHit = this.updateMousePos(e.clientX, e.clientY, bounds.width, bounds.height);
+    /** 'pointermove' event listener */
+    onPointerMove: function (e) {
+        /* Don't care about secondary pointers */
+        if(!e.isPrimary) return;
+        const bounds = e.target.getBoundingClientRect();
+        const rayHit = this.updateMousePos(e.clientX, e.clientY, bounds.width, bounds.height);
 
-        this.hoverBehaviour(rayHit);
+        this.hoverBehaviour(rayHit, false);
+    },
+
+    /** 'click' event listener */
+    onClick: function (e) {
+        const bounds = e.target.getBoundingClientRect();
+        const rayHit = this.updateMousePos(e.clientX, e.clientY, bounds.width, bounds.height);
+        this.hoverBehaviour(rayHit, true);
+    },
+
+    /** 'pointerdown' event listener */
+    onPointerDown: function (e) {
+        /* Don't care about secondary pointers or non-left clicks */
+        if(!e.isPrimary || e.button !== 0) return;
+        const bounds = e.target.getBoundingClientRect();
+        const rayHit = this.updateMousePos(e.clientX, e.clientY, bounds.width, bounds.height);
+        this.isDown = true;
+
+        this.hoverBehaviour(rayHit, false);
+    },
+
+    /** 'pointerup' event listener */
+    onPointerUp: function (e) {
+        /* Don't care about secondary pointers or non-left clicks */
+        if(!e.isPrimary || e.button !== 0) return;
+        const bounds = e.target.getBoundingClientRect();
+        const rayHit = this.updateMousePos(e.clientX, e.clientY, bounds.width, bounds.height);
+        this.isDown = false;
+
+        this.hoverBehaviour(rayHit, false);
     },
 
     /**
@@ -257,8 +315,8 @@ WL.registerComponent('cursor', {
      */
     updateMousePos: function(clientX, clientY, w, h) {
         /* Get direction in normalized device coordinate space from mouse position */
-        let left = clientX/w;
-        let top = clientY/h;
+        const left = clientX/w;
+        const top = clientY/h;
         this.direction = [left*2 - 1, -top*2 + 1, -1.0];
         return this.updateDirection();
     },
@@ -271,7 +329,7 @@ WL.registerComponent('cursor', {
             this.projectionMatrix);
         vec3.normalize(this.direction, this.direction);
         vec3.transformQuat(this.direction, this.direction, this.object.transformWorld);
-        let rayHit = this.rayHit = (this.rayCastMode == 0) ?
+        const rayHit = this.rayHit = (this.rayCastMode == 0) ?
             WL.scene.rayCast(this.origin, this.direction, this.collisionMask) :
             WL.physics.rayCast(this.origin, this.direction, this.collisionMask, this.maxDistance);
 
@@ -296,5 +354,5 @@ WL.registerComponent('cursor', {
 
     onActivate: function() {
         this._setCursorVisibility(true);
-    }
+    },
 });
