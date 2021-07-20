@@ -241,6 +241,9 @@ WL.registerComponent('cursor', {
         s.addEventListener('select', this.onSelect.bind(this));
         s.addEventListener('selectstart', this.onSelectStart.bind(this));
         s.addEventListener('selectend', this.onSelectEnd.bind(this));
+
+        /* After AR session was entered, the projection matrix changed */
+        this.onViewportResize();
     },
 
     /** 'select' event listener */
@@ -252,8 +255,6 @@ WL.registerComponent('cursor', {
     /** 'selectstart' event listener */
     onSelectStart: function(e) {
         this.arTouchDown = true;
-        /* After AR session was entered, the projection matrix changed */
-        this.onViewportResize();
         if(e.inputSource.handedness == this.handedness) this.isDown = true;
     },
 
