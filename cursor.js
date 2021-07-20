@@ -69,7 +69,7 @@ WL.registerComponent('cursor', {
 
             this.projectionMatrix = new Float32Array(16);
             mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
-            WL.canvas.addEventListener("resize", this.onViewportResize.bind(this));
+            window.addEventListener("resize", this.onViewportResize.bind(this));
         }
         this.isHovering = false;
         this.visible = true;
