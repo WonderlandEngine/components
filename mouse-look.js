@@ -21,7 +21,7 @@ WL.registerComponent('mouse-look', {
         this.origin = new Float32Array(3);
         this.parentOrigin = new Float32Array(3);
         document.addEventListener('mousemove', function(e) {
-            if(this.mouseDown || !this.requireMouseDown) {
+            if(this.active && (this.mouseDown || !this.requireMouseDown)) {
                 this.rotationY = -this.sensitity*e.movementX/100;
                 this.rotationX = -this.sensitity*e.movementY/100;
 
