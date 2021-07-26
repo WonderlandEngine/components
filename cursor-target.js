@@ -42,21 +42,19 @@ WL.registerComponent("cursor-target", {
       this.hoverFunctions = [];
       this.unHoverFunctions = [];
       this.clickFunctions = [];
+      this.moveFunctions = [];
     },
     onHover: function(object, cursor) {
-        for(let i in this.hoverFunctions) {
-            this.hoverFunctions[i](object, cursor);
-        }
+        for(let f of this.hoverFunctions) f(object, cursor);
     },
     onUnhover: function(object, cursor) {
-        for(let i in this.unHoverFunctions) {
-            this.unHoverFunctions[i](object, cursor);
-        }
+        for(let f of this.unHoverFunctions) f(object, cursor);
     },
     onClick: function(object, cursor) {
-        for(let i in this.clickFunctions) {
-            this.clickFunctions[i](object, cursor);
-        }
+        for(let f of this.clickFunctions) f(object, cursor);
+    },
+    onMove: function(object, cursor) {
+        for(let f of this.moveFunctions) f(object, cursor);
     },
     addHoverFunction: function(f) {
         if(typeof f !== "function") {
@@ -99,6 +97,20 @@ WL.registerComponent("cursor-target", {
                 + ".cursor-target: Argument needs to be a function");
         }
         this._removeItemOnce(this.clickFunctions, f);
+    },
+    addMoveFunction: function(f) {
+        if(typeof f !== "function") {
+            throw new TypeError(this.object.name
+                + ".cursor-target: Argument needs to be a function");
+        }
+        this.moveFunctions.push(f);
+    },
+    removeMoveFunction: function(f) {
+        if(typeof f !== "function") {
+            throw new TypeError(this.object.name
+                + ".cursor-target: Argument needs to be a function");
+        }
+        this._removeItemOnce(this.moveFunctions, f);
     },
 
     _removeItemOnce: function(arr, value) {

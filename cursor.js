@@ -138,7 +138,8 @@ WL.registerComponent('cursor', {
     update: function() {
         /* If in VR, set the cursor ray based on object transform */
         if(this.session) {
-            if(this.arTouchDown && this.input && WL.xrSession.inputSources[0].handedness === 'none') {
+            /* Since Google Cardboard tap is registered as arTouchDown without a gamepad, we need to check for gamepad presence */
+            if(this.arTouchDown && this.input && WL.xrSession.inputSources[0].handedness === 'none' && WL.xrSession.inputSources[0].gamepad) {
                 const p = WL.xrSession.inputSources[0].gamepad.axes;
                 /* Screenspace Y is inverted */
                 this.direction = [p[0], -p[1], -1.0];
@@ -185,14 +186,22 @@ WL.registerComponent('cursor', {
                 this.hoveringObject = rayHit.objects[0];
                 WL.canvas.style.cursor = "pointer";
                 let cursorTarget = this.hoveringObject.getComponent("cursor-target");
-                if(cursorTarget) cursorTarget.onHover(this.hoveringObject, this);
+                if(cursorTarget) {
+                    this.hoveringObjectTarget = cursorTarget;
+                    cursorTarget.onHover(this.hoveringObject, this);
+                }
                 this.globalTarget.onHover(this.hoveringObject, this);
+            }
+
+            if(this.hoveringObjectTarget) {
+                this.hoveringObjectTarget.onMove(this.hoveringObject, this);
             }
         } else if(this.hoveringObject && rayHit.hitCount == 0) {
             let cursorTarget = this.hoveringObject.getComponent("cursor-target");
             if(cursorTarget) cursorTarget.onUnhover(this.hoveringObject, this);
             this.globalTarget.onUnhover(this.hoveringObject, this);
             this.hoveringObject = null;
+            this.hoveringObjectTarget = null;
         }
     },
 
