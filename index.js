@@ -15,6 +15,7 @@ require('./howler-audio-source.js');
 require('./image-texture.js');
 require('./mouse-look.js');
 require('./teleport.js');
+require('./two-joint-ik-solver.js');
 require('./video-texture.js');
 require('./vr-mode-active-switch.js');
 require('./wasd-controls.js');
