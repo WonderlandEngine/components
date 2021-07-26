@@ -7,6 +7,7 @@ require('./cursor.js');
 require('./debug-object.js');
 require('./device-orientation-look.js');
 require('./finger-cursor.js');
+require('./fixed-foveation.js');
 require('./hand-tracking.js');
 require('./hit-test-location.js');
 require('./howler-audio-listener.js');
