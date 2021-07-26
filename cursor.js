@@ -19,16 +19,16 @@ WL.registerComponent('cursor', {
     /** Collision group for the ray cast. Only objects in this group will be affected by this cursor. */
     collisionGroup: {type: WL.Type.Int, default: 1},
     /** (optional) Object that visualizes the cursor's ray. */
-    cursorRayObject: {type: WL.Type.Object, default: null},
+    cursorRayObject: {type: WL.Type.Object},
     /** Axis along which to scale the `cursorRayObject`. */
     cursorRayScalingAxis: {type: WL.Type.Enum, values: ['x', 'y', 'z', 'none'], default: 'z'},
     /** (optional) Object that visualizes the cursor's hit location. */
-    cursorObject: {type: WL.Type.Object, default: null},
+    cursorObject: {type: WL.Type.Object},
     /** Handedness for VR cursors to accept trigger events only from respective controller. */
     handedness: {type: WL.Type.Enum, values: ['input component', 'left', 'right', 'none'], default: 'input component'},
     /** Mode for raycasting, whether to use PhysX or simple collision components */
     rayCastMode: {type: WL.Type.Enum, values: ['collision', 'physx'], default: 'collision'},
-    /** (optional) Should cursor style be changed when hovering? */
+    /** Whether to set the CSS style of the mouse cursor on desktop */
     styleCursor: {type: WL.Type.Bool, default: true},
   }, {
     init: function() {
@@ -124,7 +124,6 @@ WL.registerComponent('cursor', {
             this.cursorObjScale.set(this.cursorObject.scalingLocal);
             this.cursorObject.scale([0, 0, 0]);
         }
-
     },
 
     update: function() {
@@ -192,9 +191,6 @@ WL.registerComponent('cursor', {
 
             if(this.hoveringObjectTarget) {
                 this.hoveringObjectTarget.onMove(this.hoveringObject, this);
-                const cursorTarget = this.hoveringObject.getComponent("cursor-target");
-                if(cursorTarget) cursorTarget.onHover(this.hoveringObject, this);
-                this.globalTarget.onHover(this.hoveringObject, this);
             }
 
             /* Cursor up/down */
@@ -202,13 +198,12 @@ WL.registerComponent('cursor', {
             if(this.isDown !== this.lastIsDown) {
                 if(this.isDown) {
                     /* Down */
-                    if(cursorTarget) cursorTarget.onCursorDown(this.hoveringObject, this);
-                    this.globalTarget.onCursorDown(this.hoveringObject, this);
-                }
-                else {
+                    if(cursorTarget) cursorTarget.onDown(this.hoveringObject, this);
+                    this.globalTarget.onDown(this.hoveringObject, this);
+                } else {
                     /* Up */
-                    if(cursorTarget) cursorTarget.onCursorUp(this.hoveringObject, this);
-                    this.globalTarget.onCursorUp(this.hoveringObject, this);
+                    if(cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
+                    this.globalTarget.onUp(this.hoveringObject, this);
                 }
             }
 

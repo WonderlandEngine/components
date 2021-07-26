@@ -4,8 +4,8 @@
  * To trigger code when clicking, hovering, unhovering, moving cursor, pressing
  * cursor button or releasing cursor button, use `.addClickFunction(f)`,
  * `.addHoverFunction(f)`, `.addUnHoverFunction(f)`,
- * `.addCursorMoveFunction(f)`, `.addCursorDownFunction(f)` and
- * `.addCursorUpFunction(f)` respectively with any `function f() {}`.
+ * `.addMoveFunction(f)`, `.addDownFunction(f)` and
+ * `.addUpFunction(f)` respectively with any `function f() {}`.
  *
  * To call members on a different component, you can set up a cursor target like
  * so:
@@ -33,14 +33,14 @@
  * addClickFunction(callback);
  * removeClickFunction(callback);
  *
- * addCursorMoveFunction(callback);
- * removeCursorMoveFunction(callback);
+ * addMoveFunction(callback);
+ * removeMoveFunction(callback);
  *
- * addCursorDownFunction(callback);
- * removeCursorDownFunction(callback);
+ * addDownFunction(callback);
+ * removeDownFunction(callback);
  *
- * addCursorUpFunction(callback);
- * removeCursorUpFunction(callback);
+ * addUpFunction(callback);
+ * removeUpFunction(callback);
  * ```
  *
  * **Requirements:**
@@ -55,8 +55,8 @@ WL.registerComponent("cursor-target", {
       this.unHoverFunctions = [];
       this.clickFunctions = [];
       this.moveFunctions = [];
-      this.cursorDownFunctions = [];
-      this.cursorUpFunctions = [];
+      this.downFunctions = [];
+      this.upFunctions = [];
     },
     onHover: function(object, cursor) {
         for(let f of this.hoverFunctions) f(object, cursor);
@@ -70,15 +70,11 @@ WL.registerComponent("cursor-target", {
     onMove: function(object, cursor) {
         for(let f of this.moveFunctions) f(object, cursor);
     },
-    onCursorDown: function(object, cursor) {
-        for(let i in this.cursorDownFunctions) {
-            this.cursorDownFunctions[i](object, cursor);
-        }
+    onDown: function(object, cursor) {
+        for(let f of this.downFunctions) f(object, cursor);
     },
-    onCursorUp: function(object, cursor) {
-        for(let i in this.cursorUpFunctions) {
-            this.cursorUpFunctions[i](object, cursor);
-        }
+    onUp: function(object, cursor) {
+        for(let f of this.upFunctions) f(object, cursor);
     },
     addHoverFunction: function(f) {
         this._validateCallback(f);
@@ -112,21 +108,21 @@ WL.registerComponent("cursor-target", {
         this._validateCallback(f);
         this._removeItemOnce(this.moveFunctions, f);
     },
-    addCursorDownFunction: function(f) {
+    addDownFunction: function(f) {
         this._validateCallback(f);
-        this.cursorDownFunctions.push(f);
+        this.downFunctions.push(f);
     },
-    removeCursorDownFunction: function(f) {
+    removeDownFunction: function(f) {
         this._validateCallback(f);
-        this._removeItemOnce(this.cursorDownFunctions, f);
+        this._removeItemOnce(this.downFunctions, f);
     },
-    addCursorUpFunction: function(f) {
+    addUpFunction: function(f) {
         this._validateCallback(f);
-        this.cursorUpFunctions.push(f);
+        this.upFunctions.push(f);
     },
-    removeCursorUpFunction: function(f) {
+    removeUpFunction: function(f) {
         this._validateCallback(f);
-        this._removeItemOnce(this.cursorUpFunctions, f);
+        this._removeItemOnce(this.upFunctions, f);
     },
 
     _removeItemOnce: function(arr, value) {
