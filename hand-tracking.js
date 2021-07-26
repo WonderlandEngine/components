@@ -50,7 +50,6 @@ WL.registerComponent('hand-tracking', {
     start: function() {
         this.joints = [];
         this.session = null;
-        this.refSpace = null;
         /* Whether last update had a hand pose */
         this.hasPose = false;
         this._childrenActive = true;
@@ -99,14 +98,14 @@ WL.registerComponent('hand-tracking', {
         if(!this.session) return;
 
         this.hasPose = false;
-        if(this.session && this.session.inputSources && this.refSpace) {
+        if(this.session && this.session.inputSources) {
             for(let i = 0; i <= this.session.inputSources.length; ++i) {
                 const inputSource = this.session.inputSources[i];
                 if(!inputSource || !inputSource.hand || inputSource.handedness != this.handedness) continue;
                 this.hasPose = true;
 
                 if(inputSource.hand.get('wrist') !== null) {
-                    const p = Module['webxr_frame'].getJointPose(inputSource.hand.get('wrist'), this.refSpace);
+                    const p = Module['webxr_frame'].getJointPose(inputSource.hand.get('wrist'), WebXR.refSpaces[WebXR.refSpace]);
                     if(p) {
                         this.object.resetTranslationRotation();
                         this.object.transformLocal.set([
@@ -133,7 +132,7 @@ WL.registerComponent('hand-tracking', {
 
                     let jointPose = null;
                     if(inputSource.hand.get(jointName) !== null) {
-                        jointPose = Module['webxr_frame'].getJointPose(inputSource.hand.get(jointName), this.refSpace);
+                        jointPose = Module['webxr_frame'].getJointPose(inputSource.hand.get(jointName), WebXR.refSpaces[WebXR.refSpace]);
                     }
                     if(jointPose !== null) {
                         if(this.handSkin) {
@@ -184,7 +183,7 @@ WL.registerComponent('hand-tracking', {
                 this.controllerToDeactivate.active = true;
                 this.setChildrenActive(true, this.controllerToDeactivate);
             }
-        } else if(this.hasPose && !this._childrenInactive) {
+        } else if(this.hasPose && !this._childrenActive) {
             this._childrenActive = true;
 
             if(this.deactivateChildrenWithoutPose) {
@@ -218,7 +217,6 @@ WL.registerComponent('hand-tracking', {
     },
 
     setupVREvents: function(s) {
-        s.requestReferenceSpace('local').then(function(refSpace) { this.refSpace = refSpace; }.bind(this));
         this.session = s;
     },
 });
