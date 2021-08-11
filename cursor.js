@@ -178,7 +178,6 @@ WL.registerComponent('cursor', {
 					if (this.isDown && this.isDown == this.lastIsDown) {
 						if (cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
 						this.globalTarget.onUp(this.hoveringObject, this);
-						this.isDown = false;
 						this.lastIsDown = false;
 					}
 			
@@ -228,7 +227,6 @@ WL.registerComponent('cursor', {
 			if (this.isDown && this.isDown == this.lastIsDown) {
 				if (cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
 				this.globalTarget.onUp(this.hoveringObject, this);
-				this.isDown = false;
 				this.lastIsDown = false;
 			}
 					
@@ -239,7 +237,9 @@ WL.registerComponent('cursor', {
             if(this.styleCursor) WL.canvas.style.cursor = "default";
         }
 
-        this.lastIsDown = this.isDown;
+		if (this.hoveringObject) {
+			this.lastIsDown = this.isDown;
+		}
     },
 
     /**
