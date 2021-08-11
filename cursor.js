@@ -173,6 +173,15 @@ WL.registerComponent('cursor', {
                 /* Unhover previous, if exists */
                 if(this.hoveringObject) {
                     const cursorTarget = this.hoveringObject.getComponent("cursor-target");
+					
+					/* Cursor up */
+					if (this.isDown && this.isDown == this.lastIsDown) {
+						if (cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
+						this.globalTarget.onUp(this.hoveringObject, this);
+						this.isDown = false;
+						this.lastIsDown = false;
+					}
+			
                     if(cursorTarget) cursorTarget.onUnhover(this.hoveringObject, this);
                     this.globalTarget.onUnhover(this.hoveringObject, this);
                 }
@@ -213,7 +222,16 @@ WL.registerComponent('cursor', {
                 this.globalTarget.onClick(this.hoveringObject, this);
             }
         } else if(this.hoveringObject && rayHit.hitCount == 0) {
-            const cursorTarget = this.hoveringObject.getComponent("cursor-target");
+            const cursorTarget = this.hoveringObject.getComponent("cursor-target");			
+					
+			/* Cursor up */
+			if (this.isDown && this.isDown == this.lastIsDown) {
+				if (cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
+				this.globalTarget.onUp(this.hoveringObject, this);
+				this.isDown = false;
+				this.lastIsDown = false;
+			}
+					
             if(cursorTarget) cursorTarget.onUnhover(this.hoveringObject, this);
             this.globalTarget.onUnhover(this.hoveringObject, this);
             this.hoveringObject = null;
