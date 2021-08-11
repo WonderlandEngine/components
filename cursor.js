@@ -201,25 +201,26 @@ WL.registerComponent('cursor', {
                 this.hoveringObjectTarget.onMove(this.hoveringObject, this);
             }
 
-            /* Cursor up/down */
             const cursorTarget = this.hoveringObject.getComponent("cursor-target");
-            if(this.isDown !== this.lastIsDown) {
-                if(this.isDown) {
-                    /* Down */
-                    if(cursorTarget) cursorTarget.onDown(this.hoveringObject, this);
-                    this.globalTarget.onDown(this.hoveringObject, this);
-                } else {
-                    /* Up */
-                    if(cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
-                    this.globalTarget.onUp(this.hoveringObject, this);
-                }
-            }
+			
+            /* Cursor down */
+			if(this.isDown && this.isDown !== this.lastIsDown) {
+				if(cursorTarget) cursorTarget.onDown(this.hoveringObject, this);
+				this.globalTarget.onDown(this.hoveringObject, this);
+			}
 
             /* Click */
             if(doClick) {
                 if(cursorTarget) cursorTarget.onClick(this.hoveringObject, this);
                 this.globalTarget.onClick(this.hoveringObject, this);
             }
+			
+			/* Cursor up */
+			if(!this.isDown && this.isDown !== this.lastIsDown) {
+				if(cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
+				this.globalTarget.onUp(this.hoveringObject, this);
+			}
+		
         } else if(this.hoveringObject && rayHit.hitCount == 0) {
             const cursorTarget = this.hoveringObject.getComponent("cursor-target");			
 					
