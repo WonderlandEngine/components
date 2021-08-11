@@ -36,6 +36,11 @@ WL.registerComponent('cursor', {
         this.session = null;
         this.collisionMask = (1 << this.collisionGroup);
         this.maxDistance = 100;
+		
+		this.doubleClickTimer = 0;
+		this.tripleClickTimer = 0;
+		this.multipleClickObject = null;
+		this.multipleClickDelay = 0.3;
     },
     start: function() {
         if(this.handedness == 0) {
@@ -127,6 +132,14 @@ WL.registerComponent('cursor', {
     },
 
     update: function() {
+		if(this.doubleClickTimer > 0) {
+			this.doubleClickTimer -= dt;
+		}
+
+		if(this.tripleClickTimer > 0) {
+			this.tripleClickTimer -= dt;
+		}
+	
         this.doUpdate(false);
     },
 
@@ -175,8 +188,8 @@ WL.registerComponent('cursor', {
                     const cursorTarget = this.hoveringObject.getComponent("cursor-target");
 					
 					/* Cursor up */
-					if (this.isDown && this.isDown == this.lastIsDown) {
-						if (cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
+					if(this.isDown && this.isDown == this.lastIsDown) {
+						if(cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
 						this.globalTarget.onUp(this.hoveringObject, this);
 						this.lastIsDown = false;
 					}
@@ -210,10 +223,27 @@ WL.registerComponent('cursor', {
 			}
 
             /* Click */
-            if(doClick) {
-                if(cursorTarget) cursorTarget.onClick(this.hoveringObject, this);
-                this.globalTarget.onClick(this.hoveringObject, this);
-            }
+			if(doClick) {
+				if(this.tripleClickTimer > 0 && this.multipleClickObject && this.multipleClickObject.equals(this.hoveringObject)) {
+					if(cursorTarget) cursorTarget.onTripleClick(this.hoveringObject, this);
+					this.globalTarget.onTripleClick(this.hoveringObject, this);
+
+					this.tripleClickTimer = 0;
+				} else if(this.doubleClickTimer > 0 && this.multipleClickObject && this.multipleClickObject.equals(this.hoveringObject)) {
+					if(cursorTarget) cursorTarget.onDoubleClick(this.hoveringObject, this);
+					this.globalTarget.onDoubleClick(this.hoveringObject, this);
+
+					this.tripleClickTimer = this.multipleClickDelay;
+					this.doubleClickTimer = 0;
+				} else {
+					if(cursorTarget) cursorTarget.onClick(this.hoveringObject, this);
+					this.globalTarget.onClick(this.hoveringObject, this);
+
+					this.tripleClickTimer = 0;
+					this.doubleClickTimer = this.multipleClickDelay;
+					this.multipleClickObject = this.hoveringObject;
+				}
+			}
 			
 			/* Cursor up */
 			if(!this.isDown && this.isDown !== this.lastIsDown) {
@@ -225,20 +255,21 @@ WL.registerComponent('cursor', {
             const cursorTarget = this.hoveringObject.getComponent("cursor-target");			
 					
 			/* Cursor up */
-			if (this.isDown && this.isDown == this.lastIsDown) {
-				if (cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
+			if(this.isDown && this.isDown == this.lastIsDown) {
+				if(cursorTarget) cursorTarget.onUp(this.hoveringObject, this);
 				this.globalTarget.onUp(this.hoveringObject, this);
 				this.lastIsDown = false;
 			}
 					
             if(cursorTarget) cursorTarget.onUnhover(this.hoveringObject, this);
             this.globalTarget.onUnhover(this.hoveringObject, this);
+			
             this.hoveringObject = null;
             this.hoveringObjectTarget = null;
             if(this.styleCursor) WL.canvas.style.cursor = "default";
         }
 
-		if (this.hoveringObject) {
+		if(this.hoveringObject) {
 			this.lastIsDown = this.isDown;
 		}
     },
