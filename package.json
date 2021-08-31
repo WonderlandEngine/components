@@ -1,6 +1,6 @@
 {
   "name": "@wonderlandengine/components",
-  "version": "0.8.12",
+  "version": "0.8.13",
   "description": "Wonderland Engine's official component library.",
   "main": "index.js",
   "files": [
