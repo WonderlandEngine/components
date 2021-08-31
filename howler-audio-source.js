@@ -4,6 +4,11 @@ import {Howl} from 'howler';
  *
  * Creates a Howler audio source, plays an audio file on it and updates
  * its position.
+ *
+ * Optimizes the position update to only update if the difference to last
+ * position is larger than half a centimeter. To force updates (e.g. if
+ * the sound source is _very_ close to the listener),
+ * use `.updatePosition()`.
  */
 WL.registerComponent("howler-audio-source", {
   /** Volume */
@@ -24,36 +29,48 @@ WL.registerComponent("howler-audio-source", {
       volume: this.volume,
       autoplay: this.autoplay
     });
+
     this.lastPlayedAudioId = null;
-    this.origin = [0, 0, 0];
+    this.origin = new Float32Array(3);
+    this.lastOrigin = new Float32Array(3);
+
     if(this.spatial && this.autoplay) {
-      this.object.getTranslationWorld(this.origin);
-      this.audio.pos(this.origin[0], this.origin[1], this.origin[2]);
+      this.updatePosition();
       this.play();
     }
   },
 
   update: function() {
     if(!this.spatial || !this.lastPlayedAudioId) return;
+
     this.object.getTranslationWorld(this.origin);
-    this.audio.pos(this.origin[0], this.origin[1], this.origin[2], this.lastPlayedAudioId);
+    /* Only call pos() if the position moved more than half a centimeter
+     * otherwise this gets very performance heavy.
+     * Smaller movement should only be perceivable if close to the
+     * ear anyway. */
+    if(Math.abs(this.lastOrigin[0] - this.origin[0]) > 0.005 ||
+       Math.abs(this.lastOrigin[1] - this.origin[1]) > 0.005 ||
+       Math.abs(this.lastOrigin[2] - this.origin[2]) > 0.005)
+    {
+      this.updatePosition();
+    }
+  },
+
+  updatePosition: function() {
+      this.audio.pos(this.origin[0], this.origin[1], this.origin[2],
+        this.lastPlayedAudioId);
+      this.lastOrigin.set(this.origin);
   },
 
   play: function() {
-    if(this.lastPlayedAudioId) {
-      this.audio.stop(this.lastPlayedAudioId);
-    }
+    if(this.lastPlayedAudioId) this.audio.stop(this.lastPlayedAudioId);
     this.lastPlayedAudioId = this.audio.play();
-    if(this.spatial) {
-      this.object.getTranslationWorld(this.origin);
-      this.audio.pos(this.origin[0], this.origin[1], this.origin[2], this.lastPlayedAudioId);
-    }
+    if(this.spatial) this.updatePosition();
   },
 
   stop: function() {
-    if(this.lastPlayedAudioId) {
-      this.audio.stop(this.lastPlayedAudioId);
-      this.lastPlayedAudioId = null;
-    }
+    if(!this.lastPlayedAudioId) return;
+    this.audio.stop(this.lastPlayedAudioId);
+    this.lastPlayedAudioId = null;
   }
 });
