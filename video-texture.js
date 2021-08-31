@@ -33,6 +33,7 @@ WL.registerComponent('video-texture', {
 
         this.video = document.createElement('video');
         this.video.src = this.url;
+        this.video.crossorigin = 'anonymous';
         this.video.autoplay = this.autoplay;
         this.video.loop = this.loop;
         this.video.muted = this.muted;
