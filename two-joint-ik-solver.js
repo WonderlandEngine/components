@@ -21,7 +21,7 @@ const twoJointIK = (function() {
     let r1 = new Float32Array(4);
     let r2 = new Float32Array(4);
 
-    return function(a_lr, b_lr, a, b, c, t, eps, a_gr, b_gr) {
+    return function(a_lr, b_lr, a, b, c, t, eps, a_gr, b_gr, helper) {
         vec3.sub(ba, b, a);
         const lab = vec3.length(ba);
         vec3.sub(ta, b, c);
@@ -52,7 +52,20 @@ const twoJointIK = (function() {
 
         vec3.cross(axis0, ca, ba);
         vec3.cross(axis1, ca, ta);
-        vec3.normalize(axis0, axis0);
+
+        if(helper) {
+            vec3.sub(ba, helper, b);
+            vec3.transformQuat(ba, [0, 0, -1], b_gr);
+        } else {
+            vec3.sub(ba, b, a);
+        }
+
+        const l = vec3.length(axis0);
+        if(l == 0) {
+            axis0.set([1, 0, 0]);
+        } else {
+            vec3.scale(axis0, axis0, 1/l);
+        }
         vec3.normalize(axis1, axis1);
 
         quat.conjugate(a_gr, a_gr);
@@ -80,16 +93,19 @@ WL.registerComponent('two-joint-ik-solver', {
     end: {type: WL.Type.Object},
     /** Target the joins should reach for */
     target: {type: WL.Type.Object},
+    /** Helper object to use to determine joint rotation axis */
+    helper: {type: WL.Type.Object},
 }, {
     init: function() {
-        this.pos = new Float32Array(3*6);
+        this.pos = new Float32Array(3*7);
         this.p = [
             this.pos.subarray(0, 3),
             this.pos.subarray(3, 6),
             this.pos.subarray(6, 9),
             this.pos.subarray(9, 12),
             this.pos.subarray(12, 15),
-            this.pos.subarray(15, 18)];
+            this.pos.subarray(15, 18),
+            this.pos.subarray(18, 21)];
     },
     update: function() {
         const p = this.p;
@@ -101,11 +117,13 @@ WL.registerComponent('two-joint-ik-solver', {
         const tlb = p[5];
         this.root.getTranslationLocal(tla);
         this.middle.getTranslationLocal(tlb);
+        if(this.helper) this.helper.getTranslationWorld(p[6]);
 
         twoJointIK(this.root.transformLocal, this.middle.transformLocal,
             p[0], p[1], p[2], p[3], 0.01,
             this.root.transformWorld.subarray(0, 4),
-            this.middle.transformWorld.subarray(0, 4)
+            this.middle.transformWorld.subarray(0, 4),
+            this.helper ? p[6] : null
         );
 
         this.root.setTranslationLocal(tla);
