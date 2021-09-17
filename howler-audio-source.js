@@ -38,6 +38,14 @@ WL.registerComponent("howler-audio-source", {
       this.updatePosition();
       this.play();
     }
+
+    /* Stop sound after switching scenes */
+    const callback = () => {
+        this.stop();
+        const idx = WL.onSceneLoaded.indexOf(callback);
+        if(idx >= 0) WL.onSceneLoaded.splice(idx, 1);
+    };
+    WL.onSceneLoaded.push(callback);
   },
 
   update: function() {
