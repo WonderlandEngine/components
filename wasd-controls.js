@@ -6,7 +6,9 @@ WL.registerComponent('wasd-controls', {
     /** Movement speed in m/s. */
     speed: { type: WL.Type.Float, default: 0.1 },
     /** Object of which the orientation is used to determine forward direction */
-    headObject: { type: WL.Type.Object }
+    headObject: { type: WL.Type.Object },
+    /** Whether or not to restrict movement on the Y axis */
+    restrictY: { type: WL.Type.Bool, default: false }
 }, {
     init: function() {
         this.up = false;
@@ -34,6 +36,7 @@ WL.registerComponent('wasd-controls', {
         direction[0] *= this.speed;
         direction[2] *= this.speed;
         vec3.transformQuat(direction, direction, this.headObject.transformWorld);
+        if (this.restrictY) direction[1] = 0;
         this.object.translate(direction);
     },
 
