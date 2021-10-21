@@ -36,6 +36,13 @@ WL.registerComponent('cursor', {
         this.session = null;
         this.collisionMask = (1 << this.collisionGroup);
         this.maxDistance = 100;
+
+        const sceneLoaded = this.onDestroy.bind(this);
+        WL.onSceneLoaded.push(sceneLoaded);
+        this.onDestroyCallbacks = [() => {
+            const index = WL.onSceneLoaded.find(sceneLoaded);
+            if(index >= 0) WL.onSceneLoaded.splice(index, 1);
+        }];
     },
     start: function() {
         if(this.handedness == 0) {
@@ -62,14 +69,28 @@ WL.registerComponent('cursor', {
         /* If this object also has a view component, we will enable inverse-projected mouse clicks,
          * otherwise just use the objects transformation */
         if(this.viewComponent != null) {
-            WL.canvas.addEventListener("click", this.onClick.bind(this));
-            WL.canvas.addEventListener("pointermove", this.onPointerMove.bind(this));
-            WL.canvas.addEventListener("pointerdown", this.onPointerDown.bind(this));
-            WL.canvas.addEventListener("pointerup", this.onPointerUp.bind(this));
+            const onClick = this.onClick.bind(this);
+            WL.canvas.addEventListener("click", onClick);
+            const onPointerMove = this.onPointerMove.bind(this);
+            WL.canvas.addEventListener("pointermove", onPointerMove);
+            const onPointerDown = this.onPointerDown.bind(this);
+            WL.canvas.addEventListener("pointerdown", onPointerDown);
+            const onPointerUp = this.onPointerUp.bind(this);
+            WL.canvas.addEventListener("pointerup", onPointerUp);
 
             this.projectionMatrix = new Float32Array(16);
             mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
-            window.addEventListener("resize", this.onViewportResize.bind(this));
+            const onViewportResize = this.onViewportResize.bind(this);
+            window.addEventListener("resize", onViewportResize);
+
+            this.onDestroyCallbacks.push(() => {
+                WL.canvas.removeEventListener("click", onClick);
+                WL.canvas.removeEventListener("pointermove", onPointerMove);
+                WL.canvas.removeEventListener("pointerdown", onPointerDown);
+                WL.canvas.removeEventListener("pointerup", onPointerUp);
+                window.removeEventListener("resize", onViewportResize);
+            });
+
         }
         this.isHovering = false;
         this.visible = true;
@@ -234,15 +255,27 @@ WL.registerComponent('cursor', {
     setupVREvents: function(s) {
         /* If in VR, one-time bind the listener */
         this.session = s;
-        s.addEventListener('end', function(e) {
+        const onSessionEnd = function(e) {
             /* Reset cache once the session ends to rebind select etc, in case
              * it starts again */
             this.session = null;
-        }.bind(this));
+        }.bind(this);
+        s.addEventListener('end', onSessionEnd);
 
-        s.addEventListener('select', this.onSelect.bind(this));
-        s.addEventListener('selectstart', this.onSelectStart.bind(this));
-        s.addEventListener('selectend', this.onSelectEnd.bind(this));
+        const onSelect = this.onSelect.bind(this);
+        s.addEventListener('select', onSelect);
+        const onSelectStart = this.onSelectStart.bind(this);
+        s.addEventListener('selectstart', onSelectStart);
+        const onSelectEnd = this.onSelectEnd.bind(this);
+        s.addEventListener('selectend', onSelectEnd);
+
+        this.onDestroyCallbacks.push(() => {
+            if(!this.session) return;
+            s.removeEventListener('end', onSessionEnd);
+            s.removeEventListener('select', onSelect);
+            s.removeEventListener('selectstart', onSelectStart);
+            s.removeEventListener('selectend', onSelectEnd);
+        });
 
         /* After AR session was entered, the projection matrix changed */
         this.onViewportResize();
@@ -350,5 +383,9 @@ WL.registerComponent('cursor', {
 
     onActivate: function() {
         this._setCursorVisibility(true);
+    },
+
+    onDestroy: function() {
+        for(const f of this.onDestroyCallbacks) f();
     },
 });
