@@ -40,7 +40,7 @@ WL.registerComponent('cursor', {
         const sceneLoaded = this.onDestroy.bind(this);
         WL.onSceneLoaded.push(sceneLoaded);
         this.onDestroyCallbacks = [() => {
-            const index = WL.onSceneLoaded.find(sceneLoaded);
+            const index = WL.onSceneLoaded.indexOf(sceneLoaded);
             if(index >= 0) WL.onSceneLoaded.splice(index, 1);
         }];
     },
