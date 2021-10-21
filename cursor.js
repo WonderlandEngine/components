@@ -100,7 +100,12 @@ WL.registerComponent('cursor', {
         this.cursorPos = new Float32Array(3);
         this.hoveringObject = null;
 
-        WL.onXRSessionStart.push(this.setupVREvents.bind(this));
+        const onXRSessionStart = this.setupVREvents.bind(this);
+        WL.onXRSessionStart.push(onXRSessionStart);
+        this.onDestroyCallbacks.push(() => {
+            const index = WL.onXRSessionStart.indexOf(onXRSessionStart);
+            if(index >= 0) WL.onXRSessionStart.splice(index, 1);
+        });
 
         if(this.cursorRayObject) {
             this.cursorRayScale = new Float32Array(3);
