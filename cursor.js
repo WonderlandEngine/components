@@ -38,7 +38,6 @@ WL.registerComponent('cursor', {
         this.maxDistance = 100;
         
         this.doubleClickTimer = 0;
-        this.tripleClickTimer = 0;
         this.multipleClickObject = null;
         this.multipleClickDelay = 0.3;
     },
@@ -135,10 +134,6 @@ WL.registerComponent('cursor', {
         if(this.doubleClickTimer > 0) {
             this.doubleClickTimer -= dt;
         }
-
-        if(this.tripleClickTimer > 0) {
-            this.tripleClickTimer -= dt;
-        }
     
         this.doUpdate(false);
     },
@@ -224,22 +219,15 @@ WL.registerComponent('cursor', {
 
             /* Click */
             if(doClick) {
-                if(this.tripleClickTimer > 0 && this.multipleClickObject && this.multipleClickObject.equals(this.hoveringObject)) {
-                    if(cursorTarget) cursorTarget.onTripleClick(this.hoveringObject, this);
-                    this.globalTarget.onTripleClick(this.hoveringObject, this);
-
-                    this.tripleClickTimer = 0;
-                } else if(this.doubleClickTimer > 0 && this.multipleClickObject && this.multipleClickObject.equals(this.hoveringObject)) {
+                if(this.doubleClickTimer > 0 && this.multipleClickObject && this.multipleClickObject.equals(this.hoveringObject)) {
                     if(cursorTarget) cursorTarget.onDoubleClick(this.hoveringObject, this);
                     this.globalTarget.onDoubleClick(this.hoveringObject, this);
 
-                    this.tripleClickTimer = this.multipleClickDelay;
                     this.doubleClickTimer = 0;
                 } else {
                     if(cursorTarget) cursorTarget.onClick(this.hoveringObject, this);
                     this.globalTarget.onClick(this.hoveringObject, this);
 
-                    this.tripleClickTimer = 0;
                     this.doubleClickTimer = this.multipleClickDelay;
                     this.multipleClickObject = this.hoveringObject;
                 }

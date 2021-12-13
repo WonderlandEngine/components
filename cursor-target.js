@@ -36,9 +36,6 @@
  * addDoubleClickFunction(callback);
  * removeDoubleClickFunction(callback);
  *
- * addTripleClickFunction(callback);
- * removeTripleClickFunction(callback);
- *
  * addMoveFunction(callback);
  * removeMoveFunction(callback);
  *
@@ -61,7 +58,6 @@ WL.registerComponent("cursor-target", {
         this.unHoverFunctions = [];
         this.clickFunctions = [];
         this.doubleClickFunctions = [];
-        this.tripleClickFunctions = [];
         this.moveFunctions = [];
         this.downFunctions = [];
         this.upFunctions = [];
@@ -77,9 +73,6 @@ WL.registerComponent("cursor-target", {
     },
     onDoubleClick: function (object, cursor) {
         for (let f of this.doubleClickFunctions) f(object, cursor);
-    },
-    onTripleClick: function (object, cursor) {
-        for (let f of this.tripleClickFunctions) f(object, cursor);
     },
     onMove: function(object, cursor) {
         for(let f of this.moveFunctions) f(object, cursor);
@@ -121,14 +114,6 @@ WL.registerComponent("cursor-target", {
     removeDoubleClickFunction: function (f) {
         this._validateCallback(f);
         this._removeItemOnce(this.doubleClickFunctions, f);
-    },
-    addTripleClickFunction: function (f) {
-        this._validateCallback(f);
-        this.tripleClickFunctions.push(f);
-    },
-    removeTripleClickFunction: function (f) {
-        this._validateCallback(f);
-        this._removeItemOnce(this.tripleClickFunctions, f);
     },
     addMoveFunction: function(f) {
         this._validateCallback(f);
