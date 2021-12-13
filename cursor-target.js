@@ -57,14 +57,14 @@
 WL.registerComponent("cursor-target", {
   }, {
     init: function () {
-		this.hoverFunctions = [];
-		this.unHoverFunctions = [];
-		this.clickFunctions = [];
-		this.doubleClickFunctions = [];
-		this.tripleClickFunctions = [];
-		this.moveFunctions = [];
-		this.downFunctions = [];
-		this.upFunctions = [];
+        this.hoverFunctions = [];
+        this.unHoverFunctions = [];
+        this.clickFunctions = [];
+        this.doubleClickFunctions = [];
+        this.tripleClickFunctions = [];
+        this.moveFunctions = [];
+        this.downFunctions = [];
+        this.upFunctions = [];
     },
     onHover: function(object, cursor) {
         for(let f of this.hoverFunctions) f(object, cursor);
@@ -75,12 +75,12 @@ WL.registerComponent("cursor-target", {
     onClick: function(object, cursor) {
         for(let f of this.clickFunctions) f(object, cursor);
     },
-	onDoubleClick: function (object, cursor) {
-		for (let f of this.doubleClickFunctions) f(object, cursor);
-	},
-	onTripleClick: function (object, cursor) {
-		for (let f of this.tripleClickFunctions) f(object, cursor);
-	},
+    onDoubleClick: function (object, cursor) {
+        for (let f of this.doubleClickFunctions) f(object, cursor);
+    },
+    onTripleClick: function (object, cursor) {
+        for (let f of this.tripleClickFunctions) f(object, cursor);
+    },
     onMove: function(object, cursor) {
         for(let f of this.moveFunctions) f(object, cursor);
     },
@@ -114,22 +114,22 @@ WL.registerComponent("cursor-target", {
         this._validateCallback(f);
         this._removeItemOnce(this.clickFunctions, f);
     },
-	addDoubleClickFunction: function (f) {
-		this._validateCallback(f);
-		this.doubleClickFunctions.push(f);
-	},
-	removeDoubleClickFunction: function (f) {
-		this._validateCallback(f);
-		this._removeItemOnce(this.doubleClickFunctions, f);
-	},
-	addTripleClickFunction: function (f) {
-		this._validateCallback(f);
-		this.tripleClickFunctions.push(f);
-	},
-	removeTripleClickFunction: function (f) {
-		this._validateCallback(f);
-		this._removeItemOnce(this.tripleClickFunctions, f);
-	},
+    addDoubleClickFunction: function (f) {
+        this._validateCallback(f);
+        this.doubleClickFunctions.push(f);
+    },
+    removeDoubleClickFunction: function (f) {
+        this._validateCallback(f);
+        this._removeItemOnce(this.doubleClickFunctions, f);
+    },
+    addTripleClickFunction: function (f) {
+        this._validateCallback(f);
+        this.tripleClickFunctions.push(f);
+    },
+    removeTripleClickFunction: function (f) {
+        this._validateCallback(f);
+        this._removeItemOnce(this.tripleClickFunctions, f);
+    },
     addMoveFunction: function(f) {
         this._validateCallback(f);
         this.moveFunctions.push(f);
