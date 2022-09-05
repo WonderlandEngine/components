@@ -34,7 +34,7 @@ WL.registerComponent('device-orientation-look', {
     init: function() {
         /* Initialize device orientation with Identity Quaternion */
         this.deviceOrientation = [0, 0, 0, 1];
-        this.screenOrientation = 0;
+        this.screenOrientation = (window.innerHeight > window.innerWidth) ? 0 : 90;
         this._origin = [0, 0, 0];
 
         window.addEventListener('deviceorientation',function(e) {
@@ -58,7 +58,7 @@ WL.registerComponent('device-orientation-look', {
 
         this.object.resetTransform();
         if(this.screenOrientation != 0) {
-            this.object.rotateAxisAngleDeg([0, 0, 1], this.screenOrientation);
+            this.object.rotateAxisAngleDeg([0, 0, -1], this.screenOrientation);
         }
         this.object.rotate([-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5)]);
         this.object.rotate(this.deviceOrientation);
