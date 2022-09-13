@@ -14,6 +14,8 @@ WL.registerComponent('mouse-look', {
     /** If "moveOnClick" is enabled, mouse button which should
      * be held down to control view */
     mouseButtonIndex: {type: WL.Type.Int, default: 0},
+    /** Enables pointer lock on "mouseDown" */
+    pointerLockOnClick: {type: WL.Type.Bool, default: false},
 }, {
     init: function() {
         this.currentRotationY = 0;
@@ -42,6 +44,16 @@ WL.registerComponent('mouse-look', {
                 this.object.translate(this.origin);
             }
         }.bind(this));
+        
+        if(this.pointerLockOnClick){
+            WL.canvas.addEventListener("mousedown", () => {
+                WL.canvas.requestPointerLock =
+                    WL.canvas.requestPointerLock ||
+                    WL.canvas.mozRequestPointerLock ||
+                    WL.canvas.webkitRequestPointerLock;
+                WL.canvas.requestPointerLock();
+            });
+        }
 
         if(this.requireMouseDown) {
             if(this.mouseButtonIndex == 2) {
