@@ -35,8 +35,12 @@ WL.registerComponent('mouse-look', {
                 this.currentRotationX = Math.max(-1.507, this.currentRotationX);
 
                 this.object.getTranslationWorld(this.origin);
-                this.object.parent.getTranslationWorld(this.parentOrigin);
-                vec3.sub(this.origin, this.origin, this.parentOrigin);
+
+                const parent = this.object.parent;
+                if(parent !== null) {
+                    parent.getTranslationWorld(this.parentOrigin);
+                    vec3.sub(this.origin, this.origin, this.parentOrigin);
+                }
 
                 this.object.resetTranslationRotation();
                 this.object.rotateAxisAngleRad([1, 0, 0], this.currentRotationX);
@@ -44,7 +48,7 @@ WL.registerComponent('mouse-look', {
                 this.object.translate(this.origin);
             }
         }.bind(this));
-        
+
         if(this.pointerLockOnClick) {
             WL.canvas.addEventListener("mousedown", () => {
                 WL.canvas.requestPointerLock =
