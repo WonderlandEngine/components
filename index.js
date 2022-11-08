@@ -20,4 +20,3 @@ require('./two-joint-ik-solver.js');
 require('./video-texture.js');
 require('./vr-mode-active-switch.js');
 require('./wasd-controls.js');
-require('./wonderleap-ad.js');
