@@ -43,10 +43,23 @@ WL.registerComponent('video-texture', {
         this.video = document.createElement('video');
         this.video.src = this.url;
         this.video.crossOrigin = 'anonymous';
-        this.video.autoplay = this.autoplay;
         this.video.loop = this.loop;
         this.video.muted = this.muted;
         this.video.addEventListener('playing', function() { this.loaded = true; }.bind(this));
+
+        if(this.autoplay) {
+            const playAfterUserGesture = () => {
+                this.video.play();
+
+                window.removeEventListener('click', playAfterUserGesture);
+                window.removeEventListener('touchstart', playAfterUserGesture);
+            };
+            window.addEventListener('click', playAfterUserGesture);
+            window.addEventListener('touchstart', playAfterUserGesture);
+        }
+    },
+
+    click: function () {
     },
 
     applyTexture: function() {
