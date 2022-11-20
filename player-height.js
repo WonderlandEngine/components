@@ -1,3 +1,7 @@
+/**
+ * Set player height for a Y-offset above the ground for
+ * 'local' and 'viewer' `WebXR.refSpace`.
+ */
 WL.registerComponent('player-height', {
     height: { type: WL.Type.Float, default: 1.75 }
 }, {
