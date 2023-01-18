@@ -20,20 +20,19 @@
  * 
  * 
  * ######### Using UI overlays #############
- * By default, this component does not render any UI to give the user any feedback about rejected permissions or tracking errors.
- * It can be changed by enabling useCustomHTML flag.
+ * By default, this component renders own UI to give the user feedback about rejected permissions or tracking errors.
+ * It can be changed by enabling useCustomUIOverlays flag.
  * 
- * If useCustomHTML is enabled, this component will load the following URLs which should be stored in the 'static' folder: 
- * 'customPermissionDialogURL' - url to that .html file which will override the default 8thwall popup asking iOS Safari to perform a user interaction before javascript is allowed to request a motion/camera/mic permissions.
- * Make sure the window object is dispatching an '8thwall-permissions-allowed' event after interaction has happened. 
+ * if useCustomUIOverlays is enabled, you are expected handle the following events dispatched by the window object:
+ * - "8thwall-request-user-interaction" - used only on iOS safari. Request a user to perform and interaction with the page so that javascript is allowed to allowed to request a motion/camera/mic permissions.
+ *  Make sure the window object is dispatching an '8thwall-permissions-allowed' event after interaction has happened. 
  * ```
  * <button onclick="window.dispatchEvent(new Event('8thwall-permissions-allowed'))">Allow Sensors</button>
  * ```
  * 
- * 'customFailedPermissionsDialog' - url to the .html file which render the overlay if user rejects any of the required permissions.
- * Usually this overlay asks the user to reset the permissions (with possibly showing how to do that) and ask the user to refresh the page
+ * - "8thwall-permission-fail" - user rejected any of the permissions
  * 
- * 'customGenericErrorOverlay' - URL to the .html file which displays a message that an error occurred. 
+ * - "8thwall-error" - runtime 8thwall error occurred
  */
 
 
@@ -50,21 +49,10 @@
 WL.registerComponent('8thwall-camera-v2', {
 
     camera: { type: WL.Type.Enum, values: ['back', 'front'], default: 'back' },
+    // absoluteScale: { type: WL.Type.Bool, default: false },
+    /** Override the WL html overlays for handling camera/motion permissions and error handling */
+    useCustomUIOverlays: { type: WL.Type.Bool, default: false },
 
-    /** Use default 8thwall overlays for requesting motion/camera permissions and handling errors */
-    useCustomHTML: { type: WL.Type.Bool, default: false },
-
-    /** URL to custom camera/motion permission dialog. Used only for iOS since iOS requres user interaction before asking requesting those permissions */
-    customPermissionDialogURL: { type: WL.Type.String, default: '' },
-
-    /** URL to custom iOS error overlay that permissions were not granted */
-    // customiOSFailedPermissionsDialog: { type: WL.Type.String, default: '' },
-
-    /** URL to custom error overlay that permissions were not granted */
-    customFailedPermissionsDialog: { type: WL.Type.String, default: '' },
-
-    /** URL to generic 8thwall error message. Nothing will be rendered if not set */
-    customGenericErrorOverlay: { type: WL.Type.String, default: '' },
 }, {
 
     name: 'wonderland-engine-8thwall-camera',
@@ -79,30 +67,23 @@ WL.registerComponent('8thwall-camera-v2', {
 
     GlTextureRenderer: null, // cache XR8.GlTextureRenderer.pipelineModule
 
-    showOverlay: async function (url) {
-        const htmlContent = await fetch(url).then(response => response.text());
-        const overlay = document.createElement("div");
-        overlay.innerHTML = htmlContent;
-        document.body.appendChild(overlay);
-        return overlay;
-    },
-
     promptForDeviceMotion: async function () {
         return new Promise(async (resolve, reject) => {
-            const overlay = await this.showOverlay(this.customPermissionDialogURL);
-            const permissionsAllowed = async () => {
+            
+            // Tell anyone who's interested that we want to get some user interaction
+            window.dispatchEvent(new Event("8thwall-request-user-interaction"));
+
+            // Wait until someone response that user interaction happened
+            window.addEventListener("8thwall-permissions-allowed", async() => {
                 try {
                     const motionEvent = await DeviceMotionEvent.requestPermission();
                     resolve(motionEvent);
                 } catch (exception) {
                     reject(exception)
                 }
-                finally {
-                    overlay.remove();
-                    window.removeEventListener("8thwall-permissions-allowed", permissionsAllowed);
-                }
-            }
-            window.addEventListener("8thwall-permissions-allowed", permissionsAllowed);
+            });
+
+            
         })
     },
 
@@ -133,7 +114,10 @@ WL.registerComponent('8thwall-camera-v2', {
         }
 
         try {
+            // make sure we get the camera stream
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+
+            // If we successfully acquired the camera stream - we can stop it and wait until 8thwall requests it again
             stream.getTracks().forEach((track) => {
                 track.stop();
             });
@@ -153,15 +137,18 @@ WL.registerComponent('8thwall-camera-v2', {
     },
 
     start: async function () {
+        console.log("useCustomUIOverlays", this.useCustomUIOverlays);
+        if (!this.useCustomUIOverlays) {
+            console.log("Initing")
+            OverlaysHandler.init();
+        }
 
-        if (this.useCustomHTML) {
-            try {
-                await this.getPermissions();
-            } catch (_error) {
-                // User did not grant the camera or motionEvent permissions
-                this.showOverlay(this.customFailedPermissionsDialog);
-                return;
-            }
+        try {
+            await this.getPermissions();
+        } catch (error) {
+            // User did not grant the camera or motionEvent permissions
+            window.dispatchEvent(new CustomEvent("8thwall-permission-fail", {detail: error}))
+            return;
         }
 
         await waitForXR8();
@@ -224,7 +211,7 @@ WL.registerComponent('8thwall-camera-v2', {
 
     onCameraStatusChange: function (e) {
         if (e && e.status === "failed") {
-            this.onException(new Error("Failed to request camera"));
+            this.onException(new Error(`Camera failed with status: ${e.status}`));
         }
     },
 
@@ -269,14 +256,153 @@ WL.registerComponent('8thwall-camera-v2', {
     /**
      * @private
      * 8thwall pipeline function
-     * 
-     * 
-     * // TODO: cache the error somewhere so that the rendered overlay can access it.
      */
     onException: function (error) {
         console.warn("8thwall exception:", error);
-        if (this.useCustomHTML) {
-            this.showOverlay(this.customGenericErrorOverlay);
-        }
+        window.dispatchEvent(new CustomEvent("8thwall-error", {detail: error}));
     },
 });
+
+const OverlaysHandler = {
+    init: function () {
+
+        this.handleRequestUserInteraction = this.handleRequestUserInteraction.bind(this);
+        this.handlePermissionFail = this.handlePermissionFail.bind(this);
+        this.handleError = this.handleError.bind(this);
+
+        window.addEventListener("8thwall-request-user-interaction", this.handleRequestUserInteraction);
+        window.addEventListener("8thwall-permission-fail", this.handlePermissionFail);
+        window.addEventListener("8thwall-error", this.handleError);
+    },
+
+    handleRequestUserInteraction: function () {
+        const overlay = this.showOverlay(requestPermissionOverlay);
+        window.addEventListener("8thwall-permissions-allowed", () => {
+            overlay.remove();
+        });
+
+    },
+
+    handlePermissionFail: function (_reason) {
+        this.showOverlay(failedPermissionOverlay);
+    },
+
+    handleError: function (_error) {
+        this.showOverlay(runtimeErrorOverlay);
+    },
+
+    showOverlay: function (htmlContent) {
+        const overlay = document.createElement("div");
+        overlay.innerHTML = htmlContent;
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+}
+
+const requestPermissionOverlay = `
+<style>
+  #request-permission-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.5);
+    text-align: center;
+    font-family: sans-serif;
+  }
+
+  .request-permission-overlay_title {
+    margin: 30px;
+    font-size: 32px;
+  }
+
+  .request-permission-overlay_button {
+    background-color: #e80086;
+    font-size: 22px;
+    padding: 10px 30px;
+    color: #fff;
+    border-radius: 15px;
+    border: none;
+  }
+</style>
+
+<div id="request-permission-overlay">
+  <div class="request-permission-overlay_title">This app requires to use your camera and motion sensors</div>
+
+  <button class="request-permission-overlay_button" onclick="window.dispatchEvent(new Event('8thwall-permissions-allowed'))">OK</button>
+</div>`;
+
+const failedPermissionOverlay = `
+<style>
+  #failed-permission-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.5);
+    text-align: center;
+    font-family: sans-serif;
+  }
+
+  .failed-permission-overlay_title {
+    margin: 30px;
+    font-size: 32px;
+  }
+
+  .failed-permission-overlay_button {
+    background-color: #e80086;
+    font-size: 22px;
+    padding: 10px 30px;
+    color: #fff;
+    border-radius: 15px;
+    border: none;
+  }
+</style>
+
+<div id="failed-permission-overlay">
+  <div class="failed-permission-overlay_title">Failed to grant permissions. Reset the the permissions and refresh the page.</div>
+
+  <button class="failed-permission-overlay_button" onclick="window.location.reload()">Refresh the page</button>
+</div>`;
+
+const runtimeErrorOverlay = `
+<style>
+  #wall-error-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
+    color: #fff;
+    background-color: rgba(0, 0, 0, 0.5);
+    text-align: center;
+    font-family: sans-serif;
+  }
+
+  .wall-error-overlay_title {
+    margin: 30px;
+    font-size: 32px;
+  }
+
+  .wall-error-overlay_button {
+    background-color: #e80086;
+    font-size: 22px;
+    padding: 10px 30px;
+    color: #fff;
+    border-radius: 15px;
+    border: none;
+  }
+</style>
+
+<div id="wall-error-overlay">
+  <div class="wall-error-overlay_title">Error has occurred. Please reload the page</div>
+
+  <button class="wall-error-overlay_button" onclick="window.location.reload()">Reload</button>
+</div>`;
