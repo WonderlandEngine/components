@@ -36,7 +36,7 @@
  */
 
 
- function waitForXR8(scriptURL) {
+function waitForXR8() {
     return new Promise((resolve, rej) => {
         if (window.XR8) {
             resolve();
@@ -46,10 +46,8 @@
     });
 }
 
-WL.registerComponent('8thwall-camera-v2', {
+WL.registerComponent('8thwall-camera', {
 
-    camera: { type: WL.Type.Enum, values: ['back', 'front'], default: 'back' },
-    // absoluteScale: { type: WL.Type.Bool, default: false },
     /** Override the WL html overlays for handling camera/motion permissions and error handling */
     useCustomUIOverlays: { type: WL.Type.Bool, default: false },
 
