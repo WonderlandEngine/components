@@ -11,7 +11,7 @@ WL.registerComponent('hit-test-location', {
 }, {
     init: function() {
         WL.onXRSessionStart.push(this.xrSessionStart.bind(this));
-        WL.onXRSessionStart.push(this.xrSessionEnd.bind(this));
+        WL.onXRSessionEnd.push(this.xrSessionEnd.bind(this));
 
         this.tempScaling = new Float32Array(3);
         this.tempScaling.set(this.object.scalingLocal);
