@@ -1,4 +1,6 @@
 /**
+ * 8thwall camera component.
+ * 
  * Sets up the 8thwall pipeline and retrieves tracking events to place an
  * object at the location of the tracked AR camera / mobile device.
  *
@@ -7,9 +9,8 @@
  * Make sure to enable 8thwall in "Project Settings" > "AR". See also the
  * [AR Getting Started Guide](/getting-started/quick-start-ar)
  * 
- * [WIP] 
- * New 8thwall camera component
- * Currently only works with BACK camera.
+ * 
+ * Currently only supports world-tracking (SLAM) using BACK camera.
  *
  * - remove any occurrences of the old 8thwall-camera component in the editor
  * - Add this component to NonVrCamera
@@ -23,11 +24,11 @@
  * By default, this component renders own UI to give the user feedback about rejected permissions or tracking errors.
  * It can be changed by enabling useCustomUIOverlays flag.
  * 
- * if useCustomUIOverlays is enabled, you are expected handle the following events dispatched by the window object:
+ * If useCustomUIOverlays is enabled, you are expected handle the following events dispatched by the window object:
  * - "8thwall-request-user-interaction" - used only on iOS safari. Request a user to perform and interaction with the page so that javascript is allowed to allowed to request a motion/camera/mic permissions.
- *  Make sure the window object is dispatching an '8thwall-permissions-allowed' event after interaction has happened. 
+ *  Make sure the window object is dispatching an '8thwall-safe-to-request-permissions' event after interaction has happened. 
  * ```
- * <button onclick="window.dispatchEvent(new Event('8thwall-permissions-allowed'))">Allow Sensors</button>
+ * <button onclick="window.dispatchEvent(new Event('8thwall-safe-to-request-permissions'))">Allow Sensors</button>
  * ```
  * 
  * - "8thwall-permission-fail" - user rejected any of the permissions
@@ -35,22 +36,9 @@
  * - "8thwall-error" - runtime 8thwall error occurred
  */
 
-
-function waitForXR8() {
-    return new Promise((resolve, rej) => {
-        if (window.XR8) {
-            resolve();
-        } else {
-            window.addEventListener('xrloaded', () => resolve());
-        }
-    });
-}
-
 WL.registerComponent('8thwall-camera', {
-
     /** Override the WL html overlays for handling camera/motion permissions and error handling */
     useCustomUIOverlays: { type: WL.Type.Bool, default: false },
-
 }, {
 
     name: 'wonderland-engine-8thwall-camera',
@@ -63,16 +51,16 @@ WL.registerComponent('8thwall-camera', {
 
     rotation: [0, 0, 0, -1], // cache 8thwall cam rotation
 
-    GlTextureRenderer: null, // cache XR8.GlTextureRenderer.pipelineModule
+    glTextureRenderer: null, // cache XR8.GlTextureRenderer.pipelineModule
 
-    promptForDeviceMotion: async function () {
+    promptForDeviceMotion: function () {
         return new Promise(async (resolve, reject) => {
-            
+
             // Tell anyone who's interested that we want to get some user interaction
-            window.dispatchEvent(new Event("8thwall-request-user-interaction"));
+            window.dispatchEvent(new Event('8thwall-request-user-interaction'));
 
             // Wait until someone response that user interaction happened
-            window.addEventListener("8thwall-permissions-allowed", async() => {
+            window.addEventListener('8thwall-safe-to-request-permissions', async () => {
                 try {
                     const motionEvent = await DeviceMotionEvent.requestPermission();
                     resolve(motionEvent);
@@ -80,33 +68,30 @@ WL.registerComponent('8thwall-camera', {
                     reject(exception)
                 }
             });
-
-            
         })
     },
 
     getPermissions: async function () {
         // iOS "feature". If we want to request the DeviceMotion permission, user has to interact with the page at first (touch it).
         // If there was no interaction done so far, we will render a HTML overlay with would get the user to interact with the screen
-
         if (DeviceMotionEvent && DeviceMotionEvent.requestPermission) {
             try {
                 const result = await DeviceMotionEvent.requestPermission();
 
                 // The user must have rejected the motion event on previous page load. (safari remembers this choice).
-                if (result !== "granted") {
-                    throw new Error("MotionEvent");
+                if (result !== 'granted') {
+                    throw new Error('MotionEvent');
                 }
             } catch (exception) {
 
                 // User had no interaction with the page so far
-                if (exception.name === "NotAllowedError") {
+                if (exception.name === 'NotAllowedError') {
                     const motionEvent = await this.promptForDeviceMotion();
-                    if (motionEvent !== "granted") {
-                        throw new Error("MotionEvent");
+                    if (motionEvent !== 'granted') {
+                        throw new Error('MotionEvent');
                     }
                 } else {
-                    throw new Error("MotionEvent");
+                    throw new Error('MotionEvent');
                 }
             }
         }
@@ -116,18 +101,15 @@ WL.registerComponent('8thwall-camera', {
             const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
 
             // If we successfully acquired the camera stream - we can stop it and wait until 8thwall requests it again
-            stream.getTracks().forEach((track) => {
-                track.stop();
-            });
-
+            stream.getTracks().forEach((track) => { track.stop() });
         } catch (exception) {
-            throw new Error("Camera");
+            throw new Error('Camera');
         }
     },
 
 
     init: function () {
-        this.view = this.object.getComponent("view");
+        this.view = this.object.getComponent('view');
         this.onUpdate = this.onUpdate.bind(this);
         this.onAttach = this.onAttach.bind(this);
         this.onException = this.onException.bind(this);
@@ -135,9 +117,8 @@ WL.registerComponent('8thwall-camera', {
     },
 
     start: async function () {
-        console.log("useCustomUIOverlays", this.useCustomUIOverlays);
+        this.view = this.object.getComponent('view');
         if (!this.useCustomUIOverlays) {
-            console.log("Initing")
             OverlaysHandler.init();
         }
 
@@ -145,20 +126,18 @@ WL.registerComponent('8thwall-camera', {
             await this.getPermissions();
         } catch (error) {
             // User did not grant the camera or motionEvent permissions
-            window.dispatchEvent(new CustomEvent("8thwall-permission-fail", {detail: error}))
+            window.dispatchEvent(new CustomEvent('8thwall-permission-fail', { detail: error }))
             return;
         }
-
-        await waitForXR8();
+        await this.waitForXR8();
 
         XR8.XrController.configure({
-            // enableLighting: true,
             disableWorldTracking: false
         });
 
-        this.GlTextureRenderer = XR8.GlTextureRenderer.pipelineModule();
+        this.glTextureRenderer = XR8.GlTextureRenderer.pipelineModule();
         XR8.addCameraPipelineModules([
-            this.GlTextureRenderer, // Draws the camera feed.
+            this.glTextureRenderer, // Draws the camera feed.
             XR8.XrController.pipelineModule(), // Enables SLAM tracking.
             this
         ]);
@@ -175,8 +154,6 @@ WL.registerComponent('8thwall-camera', {
     },
 
     /**
-     * @param {*} params 
-     * 
      * private, called by 8thwall
      */
     onAttach: function (params) {
@@ -193,13 +170,13 @@ WL.registerComponent('8thwall-camera', {
         XR8.XrController.updateCameraProjectionMatrix({
             origin: { x: pos[0], y: pos[1], z: pos[2] },
             facing: { x: rot[0], y: rot[1], z: rot[2], w: rot[3] },
-            // cam: { pixelRectWidth: Module.canvas.width, pixelRectHeight: Module.canvas.height, nearClipPlane: 0.01, farClipPlane: 100 }
+            cam: { pixelRectWidth: Module.canvas.width, pixelRectHeight: Module.canvas.height, nearClipPlane: this.view.near, farClipPlane: this.view.far }
         })
 
         WL.scene.onPreRender.push(() => {
-            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null); // <--- Should not be needed after next nightly is released (current 20230110)
+            gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
             XR8.runPreRender(Date.now());
-            XR8.runRender(); // <--- tell 8thwall to do it's thing (alternatively call this.GlTextureRenderer.onRender() if you only care about camera feed )
+            XR8.runRender(); // <--- tell 8thwall to do it's thing (alternatively call this.glTextureRenderer.onRender() if you only care about camera feed )
         });
 
         WL.scene.onPostRender.push(() => {
@@ -208,7 +185,7 @@ WL.registerComponent('8thwall-camera', {
     },
 
     onCameraStatusChange: function (e) {
-        if (e && e.status === "failed") {
+        if (e && e.status === 'failed') {
             this.onException(new Error(`Camera failed with status: ${e.status}`));
         }
     },
@@ -234,21 +211,28 @@ WL.registerComponent('8thwall-camera', {
         this.position[2] = position.z;
 
         if (intrinsics) {
+            const projectionMatrix = this.view.projectionMatrix;
             for (let i = 0; i < 16; i++) {
                 if (Number.isFinite(intrinsics[i])) { // some processCpuResult.reality.intrinsics are set to Infinity, which WL brakes our projectionMatrix. So we just filter those elements out
-                    this.view.projectionMatrix[i] = intrinsics[i];
+                    projectionMatrix[i] = intrinsics[i];
                 }
             }
         }
 
         if (position && rotation) {
-            //this.object.resetTransform();
-            //this.object.rotate(this.rotation);
-            //this.object.translateWorld(this.position);
-
             this.object.rotationWorld = this.rotation;
             this.object.setTranslationWorld(this.position);
         }
+    },
+
+    waitForXR8: function () {
+        return new Promise((resolve, _rej) => {
+            if (window.XR8) {
+                resolve();
+            } else {
+                window.addEventListener('xrloaded', () => resolve());
+            }
+        });
     },
 
     /**
@@ -256,8 +240,8 @@ WL.registerComponent('8thwall-camera', {
      * 8thwall pipeline function
      */
     onException: function (error) {
-        console.warn("8thwall exception:", error);
-        window.dispatchEvent(new CustomEvent("8thwall-error", {detail: error}));
+        console.error('8thwall exception:', error);
+        window.dispatchEvent(new CustomEvent('8thwall-error', { detail: error }));
     },
 });
 
@@ -268,14 +252,14 @@ const OverlaysHandler = {
         this.handlePermissionFail = this.handlePermissionFail.bind(this);
         this.handleError = this.handleError.bind(this);
 
-        window.addEventListener("8thwall-request-user-interaction", this.handleRequestUserInteraction);
-        window.addEventListener("8thwall-permission-fail", this.handlePermissionFail);
-        window.addEventListener("8thwall-error", this.handleError);
+        window.addEventListener('8thwall-request-user-interaction', this.handleRequestUserInteraction);
+        window.addEventListener('8thwall-permission-fail', this.handlePermissionFail);
+        window.addEventListener('8thwall-error', this.handleError);
     },
 
     handleRequestUserInteraction: function () {
         const overlay = this.showOverlay(requestPermissionOverlay);
-        window.addEventListener("8thwall-permissions-allowed", () => {
+        window.addEventListener('8thwall-safe-to-request-permissions', () => {
             overlay.remove();
         });
 
@@ -290,11 +274,11 @@ const OverlaysHandler = {
     },
 
     showOverlay: function (htmlContent) {
-        const overlay = document.createElement("div");
+        const overlay = document.createElement('div');
         overlay.innerHTML = htmlContent;
         document.body.appendChild(overlay);
         return overlay;
-    }
+    },
 }
 
 const requestPermissionOverlay = `
@@ -330,7 +314,7 @@ const requestPermissionOverlay = `
 <div id="request-permission-overlay">
   <div class="request-permission-overlay_title">This app requires to use your camera and motion sensors</div>
 
-  <button class="request-permission-overlay_button" onclick="window.dispatchEvent(new Event('8thwall-permissions-allowed'))">OK</button>
+  <button class="request-permission-overlay_button" onclick="window.dispatchEvent(new Event('8thwall-safe-to-request-permissions'))">OK</button>
 </div>`;
 
 const failedPermissionOverlay = `
