@@ -154,7 +154,8 @@ WL.registerComponent('8thwall-camera', {
     },
 
     /**
-     * private, called by 8thwall
+     * @private
+     * 8thwall pipeline function
      */
     onAttach: function (params) {
         this.started = true;
@@ -184,6 +185,10 @@ WL.registerComponent('8thwall-camera', {
         });
     },
 
+    /**
+     * @private
+     * 8thwall pipeline function
+     */
     onCameraStatusChange: function (e) {
         if (e && e.status === 'failed') {
             this.onException(new Error(`Camera failed with status: ${e.status}`));
@@ -191,10 +196,9 @@ WL.registerComponent('8thwall-camera', {
     },
 
     /**
-     * @param {*} e 
-     * 
-     * private, called by 8thwall
-     */
+    * @private
+    * 8thwall pipeline function
+    */
     onUpdate: function (e) {
         if (!e.processCpuResult.reality)
             return;
@@ -225,6 +229,15 @@ WL.registerComponent('8thwall-camera', {
         }
     },
 
+    /**
+     * @private
+     * 8thwall pipeline function
+     */
+    onException: function (error) {
+        console.error('8thwall exception:', error);
+        window.dispatchEvent(new CustomEvent('8thwall-error', { detail: error }));
+    },
+
     waitForXR8: function () {
         return new Promise((resolve, _rej) => {
             if (window.XR8) {
@@ -233,15 +246,6 @@ WL.registerComponent('8thwall-camera', {
                 window.addEventListener('xrloaded', () => resolve());
             }
         });
-    },
-
-    /**
-     * @private
-     * 8thwall pipeline function
-     */
-    onException: function (error) {
-        console.error('8thwall exception:', error);
-        window.dispatchEvent(new CustomEvent('8thwall-error', { detail: error }));
     },
 });
 
