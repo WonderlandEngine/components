@@ -3,6 +3,7 @@
   "version": "0.9.0",
   "description": "Wonderland Engine's official component library.",
   "main": "index.js",
+  "wonderlandengine": {},
   "files": [
     "*.js"
   ],

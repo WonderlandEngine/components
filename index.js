@@ -14,6 +14,7 @@ require('./howler-audio-listener.js');
 require('./howler-audio-source.js');
 require('./image-texture.js');
 require('./mouse-look.js');
+require('./player-height.js');
 require('./target-framerate.js');
 require('./teleport.js');
 require('./two-joint-ik-solver.js');
