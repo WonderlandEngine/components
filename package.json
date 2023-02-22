@@ -12,12 +12,9 @@
     "howler": "^2.2.1"
   },
   "devDependencies": {
-    "esbuild": "^0.11.14"
+    "prettier": "^2.8.4"
   },
-  "scripts": {
-    "build": "esbuild index.js --minify --bundle --sourcemap --outfile=../editor-components-bundle.js",
-    "watch": "esbuild index.js --minify --bundle --sourcemap --outfile=../editor-components-bundle.js --watch"
-  },
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/WonderlandEngine/components.git"
