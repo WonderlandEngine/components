@@ -1,3 +1,5 @@
+import {Component, Type} from '@wonderlandengine/api';
+
 /**
  * Sets the target framerate
  *
@@ -14,22 +16,25 @@
  *
  * Likewise, the target framerate can be used to enable 120Hz refresh rates on Oculus Quest 2 on simpler apps.
  */
-WL.registerComponent('target-framerate', {
-    framerate: {type: WL.Type.Float, default: 90.0},
-}, {
-    start: function() {
-        if(WL.xrSession) {
-            this.setTargetFramerate(WL.xrSession);
-        } else {
-            WL.onXRSessionStart.push(this.setTargetFramerate.bind(this));
-        }
-    },
+export class TargetFramerate extends Component {
+    static TypeName = 'target-framerate';
+    static Properties = {
+        framerate: {type: Type.Float, default: 90.0},
+    };
 
-    setTargetFramerate: function(s) {
-        if(s.supportedFrameRates && s.updateTargetFrameRate) {
-            const a = WL.xrSession.supportedFrameRates;
-            a.sort((a, b) => Math.abs(a - this.framerate) - Math.abs(b - this.framerate));
-            WL.xrSession.updateTargetFrameRate(a[0]);
+    start() {
+        if (this.engine.xrSession) {
+            this.setTargetFramerate(this.engine.xrSession);
+        } else {
+            this.engine.onXRSessionStart.push(this.setTargetFramerate.bind(this));
         }
-    },
-});
+    }
+
+    setTargetFramerate(s) {
+        if (s.supportedFrameRates && s.updateTargetFrameRate) {
+            const a = this.engine.xrSession.supportedFrameRates;
+            a.sort((a, b) => Math.abs(a - this.framerate) - Math.abs(b - this.framerate));
+            this.engine.xrSession.updateTargetFrameRate(a[0]);
+        }
+    }
+}

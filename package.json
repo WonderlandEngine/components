@@ -1,6 +1,6 @@
 {
   "name": "@wonderlandengine/components",
-  "version": "0.9.2",
+  "version": "0.9.6",
   "description": "Wonderland Engine's official component library.",
   "main": "index.js",
   "wonderlandengine": {},
@@ -8,6 +8,7 @@
     "*.js"
   ],
   "dependencies": {
+    "@wonderlandengine/api": "^0.9.2",
     "gl-matrix": "^3.3.0",
     "howler": "^2.2.1"
   },

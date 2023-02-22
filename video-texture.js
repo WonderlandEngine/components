@@ -1,3 +1,5 @@
+import {Component, Texture, Type} from '@wonderlandengine/api';
+
 /**
  * Downloads a video from URL and applies it as `diffuseTexture` or `flatTexture`
  * on given material.
@@ -18,37 +20,40 @@
  *
  * See [Video Example](/showcase/video).
  */
-WL.registerComponent('video-texture', {
-    /** URL to download video from */
-    url: {type: WL.Type.String, default: ""},
-    /** Material to apply the video texture to */
-    material: {type: WL.Type.Material},
-    /** Whether to loop the video */
-    loop: {type: WL.Type.Bool, default: true},
-    /** Whether to automatically start playing the video */
-    autoplay: {type: WL.Type.Bool, default: true},
-    /** Whether to mute sound */
-    muted: {type: WL.Type.Bool, default: true},
-}, {
-    init: function() {
-        if(!this.material) {
-            console.error("video-texture: material property not set");
+export class VideoTexture extends Component {
+    static TypeName = 'video-texture';
+    static Properties = {
+        /** URL to download video from */
+        url: {type: Type.String, default: ''},
+        /** Material to apply the video texture to */
+        material: {type: Type.Material},
+        /** Whether to loop the video */
+        loop: {type: Type.Bool, default: true},
+        /** Whether to automatically start playing the video */
+        autoplay: {type: Type.Bool, default: true},
+        /** Whether to mute sound */
+        muted: {type: Type.Bool, default: true},
+    };
+
+    init() {
+        if (!this.material) {
+            console.error('video-texture: material property not set');
             return;
         }
         this.loaded = false;
         this.frameUpdateRequested = true;
-    },
+    }
 
-    start: function() {
+    start() {
         this.video = document.createElement('video');
         this.video.src = this.url;
         this.video.crossOrigin = 'anonymous';
         this.video.playsInline = true;
         this.video.loop = this.loop;
         this.video.muted = this.muted;
-        this.video.addEventListener('playing', function() { this.loaded = true; }.bind(this));
+        this.video.addEventListener('playing', () => { this.loaded = true; });
 
-        if(this.autoplay) {
+        if (this.autoplay) {
             const playAfterUserGesture = () => {
                 this.video.play();
 
@@ -58,32 +63,34 @@ WL.registerComponent('video-texture', {
             window.addEventListener('click', playAfterUserGesture);
             window.addEventListener('touchstart', playAfterUserGesture);
         }
-    },
+    }
 
-    click: function () {
-    },
-
-    applyTexture: function() {
+    applyTexture() {
         const mat = this.material;
-        this.texture = new WL.Texture(this.video);
-        if(mat.shader == "Flat Opaque Textured") {
+        this.texture = new Texture(this.engine, this.video);
+        if (mat.shader == 'Flat Opaque Textured') {
             mat.flatTexture = this.texture;
-        } else if(mat.shader == "Phong Opaque Textured") {
+        } else if (mat.shader == 'Phong Opaque Textured') {
             mat.diffuseTexture = this.texture;
         } else {
-            console.error("Shader", mat.shader, "not supported by video-texture");
+            console.error('Shader', mat.shader, 'not supported by video-texture');
         }
 
-        if('requestVideoFrameCallback' in this.video) {
+        if ('requestVideoFrameCallback' in this.video) {
             this.video.requestVideoFrameCallback(this.updateVideo.bind(this));
         } else {
-            this.video.addEventListener('timeupdate', function() { this.frameUpdateRequested = true; }.bind(this));
+            this.video.addEventListener(
+                'timeupdate',
+                function () {
+                    this.frameUpdateRequested = true;
+                }.bind(this)
+            );
         }
-    },
+    }
 
-    update: function(dt) {
-        if(this.loaded && this.frameUpdateRequested) {
-            if(this.texture) {
+    update(dt) {
+        if (this.loaded && this.frameUpdateRequested) {
+            if (this.texture) {
                 this.texture.update();
             } else {
                 /* Apply texture on first frame update request */
@@ -91,10 +98,10 @@ WL.registerComponent('video-texture', {
             }
             this.frameUpdateRequested = false;
         }
-    },
+    }
 
-    updateVideo: function() {
+    updateVideo() {
         this.frameUpdateRequested = true;
         this.video.requestVideoFrameCallback(this.updateVideo.bind(this));
     }
-});
+}

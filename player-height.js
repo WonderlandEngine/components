@@ -1,30 +1,35 @@
+import {Component, Type} from '@wonderlandengine/api';
+
 /**
  * Set player height for a Y-offset above the ground for
  * 'local' and 'viewer' `WebXR.refSpace`.
  */
-WL.registerComponent('player-height', {
-    height: { type: WL.Type.Float, default: 1.75 }
-}, {
-    init: function() {
-        WL.onXRSessionStart.push(this.onXRSessionStart.bind(this));
-        WL.onXRSessionEnd.push(this.onXRSessionEnd.bind(this));
-    },
+export class PlayerHeight extends Component {
+    static TypeName = 'player-height';
+    static Properties = {
+        height: {type: Type.Float, default: 1.75},
+    };
 
-    start: function() {
+    init() {
+        this.engine.onXRSessionStart.push(this.onXRSessionStart.bind(this));
+        this.engine.onXRSessionEnd.push(this.onXRSessionEnd.bind(this));
+    }
+
+    start() {
         this.object.resetTranslationRotation();
         this.object.translate([0.0, this.height, 0.0]);
-    },
+    }
 
-    onXRSessionStart: function() {
-        if(!['local', 'viewer'].includes(WebXR.refSpace)) {
+    onXRSessionStart() {
+        if (!['local', 'viewer'].includes(WebXR.refSpace)) {
             this.object.resetTranslationRotation();
         }
-    },
+    }
 
-    onXRSessionEnd: function() {
-        if(!['local', 'viewer'].includes(WebXR.refSpace)) {
+    onXRSessionEnd() {
+        if (!['local', 'viewer'].includes(WebXR.refSpace)) {
             this.object.resetTranslationRotation();
             this.object.translate([0.0, this.height, 0.0]);
         }
     }
-});
+}

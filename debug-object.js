@@ -1,3 +1,5 @@
+import {Component, Type} from '@wonderlandengine/api';
+
 /**
  * Prints some limited debug information about the object.
  *
@@ -6,20 +8,24 @@
  *
  * Mainly used by engine developers for debug purposes or as example code.
  */
-WL.registerComponent('debug-object', {
-    /** A second object to print the name of */
-    obj: {type: WL.Type.Object}
-}, {
-    start: function() {
-    },
-    init: function() {
+export class DebugObject extends Component {
+    static TypeName = 'debug-object';
+    static Properties = {
+        /** A second object to print the name of */
+        obj: {type: Type.Object},
+    };
+
+    start() {}
+
+    init() {
         let origin = [0, 0, 0];
         glMatrix.quat2.getTranslation(origin, this.object.transformWorld);
-        console.log("Debug Object:", this.object.name);
-        console.log("Other object:", this.obj.name);
-        console.log("\ttranslation", origin);
-        console.log("\ttransformWorld", this.object.transformWorld);
-        console.log("\ttransformLocal", this.object.transformLocal);
-    },
-    update: function() {}
-});
+        console.log('Debug Object:', this.object.name);
+        console.log('Other object:', this.obj.name);
+        console.log('\ttranslation', origin);
+        console.log('\ttransformWorld', this.object.transformWorld);
+        console.log('\ttransformLocal', this.object.transformLocal);
+    }
+
+    update() {}
+}
