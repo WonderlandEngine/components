@@ -43,6 +43,7 @@ WL.registerComponent('video-texture', {
         this.video = document.createElement('video');
         this.video.src = this.url;
         this.video.crossOrigin = 'anonymous';
+        this.video.playsInline = true;
         this.video.loop = this.loop;
         this.video.muted = this.muted;
         this.video.addEventListener('playing', function() { this.loaded = true; }.bind(this));
