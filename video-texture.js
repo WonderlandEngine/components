@@ -24,7 +24,7 @@ export class VideoTexture extends Component {
     static TypeName = 'video-texture';
     static Properties = {
         /** URL to download video from */
-        url: {type: Type.String, default: ''},
+        url: {type: Type.String},
         /** Material to apply the video texture to */
         material: {type: Type.Material},
         /** Whether to loop the video */

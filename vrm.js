@@ -45,7 +45,7 @@ export class Vrm extends Component {
     static TypeName = 'vrm';
     static Properties = {
         /** URL to a VRM file to load */
-        src: {type: Type.String, default: ''},
+        src: {type: Type.String},
         /** Object the VRM is looking at */
         lookAtTarget: {type: Type.Object},
     };
