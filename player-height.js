@@ -2,7 +2,7 @@ import {Component, Type} from '@wonderlandengine/api';
 
 /**
  * Set player height for a Y-offset above the ground for
- * 'local' and 'viewer' `WebXR.refSpace`.
+ * 'local' and 'viewer' reference spaces.
  */
 export class PlayerHeight extends Component {
     static TypeName = 'player-height';
@@ -21,12 +21,14 @@ export class PlayerHeight extends Component {
     }
 
     onXRSessionStart() {
+        const WebXR = this.engine.wasm.WebXR;
         if (!['local', 'viewer'].includes(WebXR.refSpace)) {
             this.object.resetTranslationRotation();
         }
     }
 
     onXRSessionEnd() {
+        const WebXR = this.engine.wasm.WebXR;
         if (!['local', 'viewer'].includes(WebXR.refSpace)) {
             this.object.resetTranslationRotation();
             this.object.translate([0.0, this.height, 0.0]);
