@@ -14,6 +14,7 @@ export * from './mouse-look.js';
 export * from './player-height.js';
 export * from './target-framerate.js';
 export * from './teleport.js';
+export * from './trail.js';
 export * from './two-joint-ik-solver.js';
 export * from './video-texture.js';
 export * from './vr-mode-active-switch.js';

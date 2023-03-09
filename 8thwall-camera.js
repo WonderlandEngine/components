@@ -37,7 +37,6 @@ import {Component, Type} from '@wonderlandengine/api';
  *
  * - "8thwall-error" - runtime 8thwall error occurred
  */
-
 export class ARCamera8thwall extends Component {
     static TypeName = '8thwall-camera';
     static Properties = {
@@ -227,7 +226,9 @@ export class ARCamera8thwall extends Component {
         if (intrinsics) {
             const projectionMatrix = this.view.projectionMatrix;
             for (let i = 0; i < 16; i++) {
-                if (Number.isFinite(intrinsics[i])) { // some processCpuResult.reality.intrinsics are set to Infinity, which WL brakes our projectionMatrix. So we just filter those elements out
+                /* Some processCpuResult.reality.intrinsics are set to Infinity,
+                 * which brakes our projectionMatrix. So we just filter those elements out. */
+                if (Number.isFinite(intrinsics[i])) {
                     projectionMatrix[i] = intrinsics[i];
                 }
             }

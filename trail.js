@@ -1,4 +1,9 @@
-import {Component, Type, Mesh, MeshIndexType, MeshAttribute} from '@wonderlandengine/api'
+import {Component, Type, Mesh, MeshIndexType, MeshAttribute} from '@wonderlandengine/api';
+import {vec3} from 'gl-matrix';
+
+const direction = vec3.create();
+const offset = vec3.create();
+const normal = vec3.create();
 
 /**
  * Dynamic mesh-based trail
@@ -31,16 +36,18 @@ export class Trail extends Component {
          */
         resetThreshold: {type: Type.Float, default: 0.5},
     };
+
     init() {
         this.points = new Array(this.segments + 1);
         for (let i = 0; i < this.points.length; ++i) {
-            this.points[i] = glMatrix.vec3.create();
+            this.points[i] = vec3.create();
         }
         /* The points array is circular, so keep track of its head */
         this.currentPointOffset = 0;
         this.up = [0, 1, 0];
         this.timeTillNext = this.interval;
     }
+
     start() {
         this.trailContainer = this.engine.scene.addObject();
 
@@ -65,28 +72,25 @@ export class Trail extends Component {
         this.meshComp.mesh = this.mesh;
     }
 
-    static direction = glMatrix.vec3.create();
-    static offset = glMatrix.vec3.create();
-    static normal = glMatrix.vec3.create();
     updateVertices() {
         const positions = this.mesh.attribute(MeshAttribute.Position);
         const texCoords = this.mesh.attribute(MeshAttribute.TextureCoordinate);
         const normals = this.mesh.attribute(MeshAttribute.Normal);
 
-        glMatrix.vec3.set(direction, 0, 0, 0);
+        vec3.set(direction, 0, 0, 0);
         for (let i = 0; i < this.points.length; ++i) {
             const curr = this.points[(this.currentPointIndex + i + 1) % this.points.length];
             const next = this.points[(this.currentPointIndex + i + 2) % this.points.length];
 
             /* The last point has no next, so re-use the direction of the previous segment */
             if (i !== this.points.length - 1) {
-                glMatrix.vec3.sub(direction, next, curr);
+                vec3.sub(direction, next, curr);
             }
-            glMatrix.vec3.cross(offset, this.up, direction);
-            glMatrix.vec3.normalize(offset, offset);
+            vec3.cross(offset, this.up, direction);
+            vec3.normalize(offset, offset);
             const timeFraction = 1.0 - this.timeTillNext / this.interval;
             const fraction = (i - timeFraction) / this.segments;
-            glMatrix.vec3.scale(
+            vec3.scale(
                 offset,
                 offset,
                 ((this.taper ? fraction : 1.0) * this.width) / 2.0
@@ -104,8 +108,8 @@ export class Trail extends Component {
             ]);
 
             if (normals) {
-                glMatrix.vec3.cross(normal, direction, offset);
-                glMatrix.vec3.normalize(normal, normal);
+                vec3.cross(normal, direction, offset);
+                vec3.normalize(normal, normal);
                 normals.set(i * 2, normal);
                 normals.set(i * 2 + 1, normal);
             }
@@ -115,19 +119,20 @@ export class Trail extends Component {
             }
         }
 
-        /* Notify WL that the mesh has changed */
+        /* Notify WLE that the mesh has changed */
         this.mesh.update();
     }
 
     resetTrail() {
         this.object.getTranslationWorld(this.points[0]);
         for (let i = 1; i < this.points.length; ++i) {
-            glMatrix.vec3.copy(this.points[i], this.points[0]);
+            vec3.copy(this.points[i], this.points[0]);
         }
         this.currentPointIndex = 0;
 
         this.timeTillNext = this.interval;
     }
+
     update(dt) {
         this.timeTillNext -= dt;
         if (dt > this.resetThreshold) {
@@ -142,6 +147,7 @@ export class Trail extends Component {
 
         this.updateVertices();
     }
+
     onActivate() {
         this.resetTrail();
     }

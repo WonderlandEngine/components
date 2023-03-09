@@ -1,4 +1,5 @@
 import {Component, Type} from '@wonderlandengine/api';
+import {quat2} from 'gl-matrix';
 
 /**
  * Prints some limited debug information about the object.
@@ -19,7 +20,7 @@ export class DebugObject extends Component {
 
     init() {
         let origin = [0, 0, 0];
-        glMatrix.quat2.getTranslation(origin, this.object.transformWorld);
+        quat2.getTranslation(origin, this.object.transformWorld);
         console.log('Debug Object:', this.object.name);
         console.log('Other object:', this.obj.name);
         console.log('\ttranslation', origin);

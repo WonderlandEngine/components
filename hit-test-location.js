@@ -1,6 +1,6 @@
-import {Component, Type} from '@wonderlandengine/api';
-
+import {Component} from '@wonderlandengine/api';
 import {quat2} from 'gl-matrix';
+
 /**
  * Sets up a [WebXR Device API "Hit Test"](https://immersive-web.github.io/hit-test/)
  * and places the object to the hit location.
@@ -26,7 +26,7 @@ export class HitTestLocation extends Component {
     update(dt) {
         const wasVisible = this.visible;
         if (this.xrHitTestSource) {
-            const frame = Module['webxr_frame'];
+            const frame = this.engine.xrFrame;
             if (!frame) return;
             let hitTestResults = frame.getHitTestResults(this.xrHitTestSource);
             if (hitTestResults.length > 0) {

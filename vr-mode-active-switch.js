@@ -31,7 +31,7 @@ export class VrModeActiveSwitch extends Component {
     }
 
     getComponents(obj) {
-        const comps = obj.getComponents().filter((c) => c.type != 'vr-mode-active-switch');
+        const comps = obj.getComponents().filter((c) => c.type !== 'vr-mode-active-switch');
         this.components = this.components.concat(comps);
 
         if (this.affectChildren) {

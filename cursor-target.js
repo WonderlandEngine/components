@@ -1,4 +1,4 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component} from '@wonderlandengine/api';
 
 /**
  * Click/hover/move/button target for [cursor](#cursor).

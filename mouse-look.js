@@ -9,7 +9,6 @@ import {vec3} from 'gl-matrix';
  */
 export class MouseLookComponent extends Component {
     static TypeName = 'mouse-look';
-
     static Properties = {
         /** Mouse look sensitivity */
         sensitity: {type: Type.Float, default: 0.25},
@@ -18,7 +17,7 @@ export class MouseLookComponent extends Component {
         requireMouseDown: {type: Type.Bool, default: true},
         /** If "moveOnClick" is enabled, mouse button which should
          * be held down to control view */
-        mouseButtonIndex: {type: Type.Int, default: 0},
+        mouseButtonIndex: {type: Type.Int},
         /** Enables pointer lock on "mousedown" event on canvas */
         pointerLockOnClick: {type: Type.Bool, default: false},
     };

@@ -1,6 +1,34 @@
 import {Component, Type} from '@wonderlandengine/api';
-
 import {vec3, quat, quat2} from 'gl-matrix';
+
+const ORDERED_JOINTS = [
+    'wrist',
+    'thumb-metacarpal',
+    'thumb-phalanx-proximal',
+    'thumb-phalanx-distal',
+    'thumb-tip',
+    'index-finger-metacarpal',
+    'index-finger-phalanx-proximal',
+    'index-finger-phalanx-intermediate',
+    'index-finger-phalanx-distal',
+    'index-finger-tip',
+    'middle-finger-metacarpal',
+    'middle-finger-phalanx-proximal',
+    'middle-finger-phalanx-intermediate',
+    'middle-finger-phalanx-distal',
+    'middle-finger-tip',
+    'ring-finger-metacarpal',
+    'ring-finger-phalanx-proximal',
+    'ring-finger-phalanx-intermediate',
+    'ring-finger-phalanx-distal',
+    'ring-finger-tip',
+    'pinky-finger-metacarpal',
+    'pinky-finger-phalanx-proximal',
+    'pinky-finger-phalanx-intermediate',
+    'pinky-finger-phalanx-distal',
+    'pinky-finger-tip'
+];
+
 /**
  * Easy hand tracking through the WebXR Device API
  * ["Hand Input" API](https://immersive-web.github.io/webxr-hand-input/).
@@ -41,34 +69,6 @@ export class HandTracking extends Component {
         controllerToDeactivate: {type: Type.Object},
     };
 
-    static ORDERED_JOINTS = [
-        'wrist',
-        'thumb-metacarpal',
-        'thumb-phalanx-proximal',
-        'thumb-phalanx-distal',
-        'thumb-tip',
-        'index-finger-metacarpal',
-        'index-finger-phalanx-proximal',
-        'index-finger-phalanx-intermediate',
-        'index-finger-phalanx-distal',
-        'index-finger-tip',
-        'middle-finger-metacarpal',
-        'middle-finger-phalanx-proximal',
-        'middle-finger-phalanx-intermediate',
-        'middle-finger-phalanx-distal',
-        'middle-finger-tip',
-        'ring-finger-metacarpal',
-        'ring-finger-phalanx-proximal',
-        'ring-finger-phalanx-intermediate',
-        'ring-finger-phalanx-distal',
-        'ring-finger-tip',
-        'pinky-finger-metacarpal',
-        'pinky-finger-phalanx-proximal',
-        'pinky-finger-phalanx-intermediate',
-        'pinky-finger-phalanx-distal',
-        'pinky-finger-tip'
-    ];
-
     init() {
         this.handedness = ['left', 'right'][this.handedness];
     }
@@ -90,12 +90,12 @@ export class HandTracking extends Component {
             let skin = this.handSkin;
             let jointIds = skin.jointIds;
             /* Map the wrist */
-            this.joints[this.ORDERED_JOINTS[0]] = new WL.Object(jointIds[0]);
+            this.joints[ORDERED_JOINTS[0]] = this.engine.wrapObject(jointIds[0]);
 
             /* Index in ORDERED_JOINTS that we are mapping to our joints */
             /* Skip thumb0 joint, start at thumb1 */
             for (let j = 0; j < jointIds.length; ++j) {
-                let joint = new WL.Object(jointIds[j]);
+                let joint = this.engine.wrapObject(jointIds[j]);
                 /* tip joints are only needed for joint rendering, so we skip those while mapping */
                 this.joints[joint.name] = joint;
             }
@@ -105,14 +105,14 @@ export class HandTracking extends Component {
         }
 
         /* Spawn joints */
-        for (let j = 0; j <= this.ORDERED_JOINTS.length; ++j) {
+        for (let j = 0; j <= ORDERED_JOINTS.length; ++j) {
             let joint = this.engine.scene.addObject(this.object.parent);
             let mesh = joint.addComponent('mesh');
 
             mesh.mesh = this.jointMesh;
             mesh.material = this.jointMaterial;
 
-            this.joints[this.ORDERED_JOINTS[j]] = joint;
+            this.joints[ORDERED_JOINTS[j]] = joint;
         }
     }
 
@@ -162,8 +162,8 @@ export class HandTracking extends Component {
                 quat.invert(invRotation, this.object.transformLocal);
                 this.object.getTranslationLocal(invTranslation);
 
-                for (let j = 0; j < this.ORDERED_JOINTS.length; ++j) {
-                    const jointName = this.ORDERED_JOINTS[j];
+                for (let j = 0; j < ORDERED_JOINTS.length; ++j) {
+                    const jointName = ORDERED_JOINTS[j];
                     const joint = this.joints[jointName];
                     if (joint == null) continue;
 

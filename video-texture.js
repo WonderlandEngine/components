@@ -8,7 +8,13 @@ import {Component, Texture, Type} from '@wonderlandengine/api';
  * a new frame is available. This component handles the
  * detection of a new frame and updates the texture to
  * reflect the video's current frame.
- * Only "Phong Opaque Textured" and "Flat Opaque Textured" materials are supported.
+ *
+ * Materials from the following shaders are supported:
+ *  - "Phong Opaque Textured"
+ *  - "Flat Opaque Textured"
+ *  - "Background"
+ *  - "Physical Opaque Textured"
+ *  - "Foliage"
  *
  * The video can be accessed through `this.video`:
  *
@@ -37,8 +43,7 @@ export class VideoTexture extends Component {
 
     init() {
         if (!this.material) {
-            console.error('video-texture: material property not set');
-            return;
+            throw Error('video-texture: material property not set');
         }
         this.loaded = false;
         this.frameUpdateRequested = true;
@@ -67,13 +72,19 @@ export class VideoTexture extends Component {
 
     applyTexture() {
         const mat = this.material;
-        this.texture = new Texture(this.engine, this.video);
-        if (mat.shader == 'Flat Opaque Textured') {
-            mat.flatTexture = this.texture;
-        } else if (mat.shader == 'Phong Opaque Textured') {
-            mat.diffuseTexture = this.texture;
+        const shader = mat.shader;
+        const texture = (this.texture = new Texture(this.engine, this.video));
+
+        if (shader === 'Flat Opaque Textured') {
+            mat.flatTexture = texture;
+        } else if (shader === 'Phong Opaque Textured' || shader === 'Foliage') {
+            mat.diffuseTexture = texture;
+        } else if (shader === 'Background') {
+            mat.texture = texture;
+        } else if (shader === 'Physical Opaque Textured') {
+            mat.albedoTexture = texture;
         } else {
-            console.error('Shader', mat.shader, 'not supported by video-texture');
+            console.error('Shader', shader, 'not supported by video-texture');
         }
 
         if ('requestVideoFrameCallback' in this.video) {
@@ -81,9 +92,7 @@ export class VideoTexture extends Component {
         } else {
             this.video.addEventListener(
                 'timeupdate',
-                function () {
-                    this.frameUpdateRequested = true;
-                }.bind(this)
+                () => { this.frameUpdateRequested = true; }
             );
         }
     }

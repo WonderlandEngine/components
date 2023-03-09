@@ -23,8 +23,6 @@ export class FixedFoveation extends Component {
     }
 
     setFixedFoveation() {
-        if ('webxr_baseLayer' in Module) {
-            this.engine.xrBaseLayer.fixedFoveation = this.fixedFoveation;
-        }
+        this.engine.xrBaseLayer.fixedFoveation = this.fixedFoveation;
     }
 }

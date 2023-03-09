@@ -1,4 +1,4 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component} from '@wonderlandengine/api';
 
 /**
  * Enables interaction with cursor-targets through collision overlaps,

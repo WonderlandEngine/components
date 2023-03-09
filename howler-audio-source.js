@@ -1,6 +1,6 @@
 import {Component, Type} from '@wonderlandengine/api';
-
 import {Howl} from 'howler';
+
 /**
  * (Spatial) audio source based on [Howler.js](https://howlerjs.com/).
  *

@@ -1,4 +1,4 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component} from '@wonderlandengine/api';
 
 /**
  * Function to convert a Euler in YXZ order to a quaternion
@@ -71,7 +71,7 @@ export class DeviceOrientationLook extends Component {
         /* Don't use device orientation in VR */
         if (Module['webxr_session'] != null) return;
 
-        glMatrix.quat2.getTranslation(this._origin, this.object.transformLocal);
+        this.object.getTranslationLocal(this._origin);
 
         this.object.resetTransform();
         if (this.screenOrientation != 0) {
