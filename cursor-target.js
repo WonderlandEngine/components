@@ -1,3 +1,5 @@
+import {Component} from '@wonderlandengine/api';
+
 /**
  * Click/hover/move/button target for [cursor](#cursor).
  *
@@ -48,93 +50,114 @@
  *
  * See [Animation Example](/showcase/animation).
  */
-WL.registerComponent("cursor-target", {
-  }, {
-    init: function () {
-      this.hoverFunctions = [];
-      this.unHoverFunctions = [];
-      this.clickFunctions = [];
-      this.moveFunctions = [];
-      this.downFunctions = [];
-      this.upFunctions = [];
-    },
-    onHover: function(object, cursor) {
-        for(let f of this.hoverFunctions) f(object, cursor);
-    },
-    onUnhover: function(object, cursor) {
-        for(let f of this.unHoverFunctions) f(object, cursor);
-    },
-    onClick: function(object, cursor) {
-        for(let f of this.clickFunctions) f(object, cursor);
-    },
-    onMove: function(object, cursor) {
-        for(let f of this.moveFunctions) f(object, cursor);
-    },
-    onDown: function(object, cursor) {
-        for(let f of this.downFunctions) f(object, cursor);
-    },
-    onUp: function(object, cursor) {
-        for(let f of this.upFunctions) f(object, cursor);
-    },
-    addHoverFunction: function(f) {
+export class CursorTarget extends Component {
+    static TypeName = 'cursor-target';
+    static Properties = {};
+
+    init() {
+        this.hoverFunctions = [];
+        this.unHoverFunctions = [];
+        this.clickFunctions = [];
+        this.moveFunctions = [];
+        this.downFunctions = [];
+        this.upFunctions = [];
+    }
+
+    onHover(object, cursor) {
+        for (let f of this.hoverFunctions) f(object, cursor);
+    }
+
+    onUnhover(object, cursor) {
+        for (let f of this.unHoverFunctions) f(object, cursor);
+    }
+
+    onClick(object, cursor) {
+        for (let f of this.clickFunctions) f(object, cursor);
+    }
+
+    onMove(object, cursor) {
+        for (let f of this.moveFunctions) f(object, cursor);
+    }
+
+    onDown(object, cursor) {
+        for (let f of this.downFunctions) f(object, cursor);
+    }
+
+    onUp(object, cursor) {
+        for (let f of this.upFunctions) f(object, cursor);
+    }
+
+    addHoverFunction(f) {
         this._validateCallback(f);
         this.hoverFunctions.push(f);
-    },
-    removeHoverFunction: function(f) {
+    }
+
+    removeHoverFunction(f) {
         this._validateCallback(f);
         this._removeItemOnce(this.hoverFunctions, f);
-    },
-    addUnHoverFunction: function(f) {
+    }
+
+    addUnHoverFunction(f) {
         this._validateCallback(f);
         this.unHoverFunctions.push(f);
-    },
-    removeUnHoverFunction: function(f) {
+    }
+
+    removeUnHoverFunction(f) {
         this._validateCallback(f);
         this._removeItemOnce(this.unHoverFunctions, f);
-    },
-    addClickFunction: function(f) {
+    }
+
+    addClickFunction(f) {
         this._validateCallback(f);
         this.clickFunctions.push(f);
-    },
-    removeClickFunction: function(f) {
+    }
+
+    removeClickFunction(f) {
         this._validateCallback(f);
         this._removeItemOnce(this.clickFunctions, f);
-    },
-    addMoveFunction: function(f) {
+    }
+
+    addMoveFunction(f) {
         this._validateCallback(f);
         this.moveFunctions.push(f);
-    },
-    removeMoveFunction: function(f) {
+    }
+
+    removeMoveFunction(f) {
         this._validateCallback(f);
         this._removeItemOnce(this.moveFunctions, f);
-    },
-    addDownFunction: function(f) {
+    }
+
+    addDownFunction(f) {
         this._validateCallback(f);
         this.downFunctions.push(f);
-    },
-    removeDownFunction: function(f) {
+    }
+
+    removeDownFunction(f) {
         this._validateCallback(f);
         this._removeItemOnce(this.downFunctions, f);
-    },
-    addUpFunction: function(f) {
+    }
+
+    addUpFunction(f) {
         this._validateCallback(f);
         this.upFunctions.push(f);
-    },
-    removeUpFunction: function(f) {
+    }
+
+    removeUpFunction(f) {
         this._validateCallback(f);
         this._removeItemOnce(this.upFunctions, f);
-    },
+    }
 
-    _removeItemOnce: function(arr, value) {
+    _removeItemOnce(arr, value) {
         var index = arr.indexOf(value);
-        if(index > -1) arr.splice(index, 1);
+        if (index > -1) arr.splice(index, 1);
         return arr;
-    },
-    _validateCallback: function(f) {
-        if(typeof f !== "function") {
-            throw new TypeError(this.object.name
-                + ".cursor-target: Argument needs to be a function");
-        }
-    },
-});
+    }
 
+    _validateCallback(f) {
+        if (typeof f !== 'function') {
+            throw new TypeError(
+                this.object.name + '.cursor-target: Argument needs to be a function'
+            );
+        }
+    }
+}

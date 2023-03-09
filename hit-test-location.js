@@ -1,4 +1,6 @@
+import {Component} from '@wonderlandengine/api';
 import {quat2} from 'gl-matrix';
+
 /**
  * Sets up a [WebXR Device API "Hit Test"](https://immersive-web.github.io/hit-test/)
  * and places the object to the hit location.
@@ -7,24 +9,27 @@ import {quat2} from 'gl-matrix';
  *  - Specify `'hit-test'` in the required or optional features on the AR button in your html file.
  *    See [Wastepaperbin AR](/showcase/wpb-ar) as an example.
  */
-WL.registerComponent('hit-test-location', {
-}, {
-    init: function() {
-        WL.onXRSessionStart.push(this.xrSessionStart.bind(this));
-        WL.onXRSessionEnd.push(this.xrSessionEnd.bind(this));
+export class HitTestLocation extends Component {
+    static TypeName = 'hit-test-location';
+    static Properties = {};
+
+    init() {
+        this.engine.onXRSessionStart.push(this.xrSessionStart.bind(this));
+        this.engine.onXRSessionEnd.push(this.xrSessionEnd.bind(this));
 
         this.tempScaling = new Float32Array(3);
         this.tempScaling.set(this.object.scalingLocal);
         this.visible = false;
         this.object.scale([0, 0, 0]);
-    },
-    update: function(dt) {
+    }
+
+    update(dt) {
         const wasVisible = this.visible;
-        if(this.xrHitTestSource) {
-            const frame = Module['webxr_frame'];
-            if(!frame) return;
+        if (this.xrHitTestSource) {
+            const frame = this.engine.xrFrame;
+            if (!frame) return;
             let hitTestResults = frame.getHitTestResults(this.xrHitTestSource);
-            if(hitTestResults.length > 0) {
+            if (hitTestResults.length > 0) {
                 let pose = hitTestResults[0].getPose(this.xrViewerSpace);
                 this.visible = true;
                 quat2.fromMat4(this.object.transformLocal, pose.transform.matrix);
@@ -34,8 +39,8 @@ WL.registerComponent('hit-test-location', {
             }
         }
 
-        if(this.visible != wasVisible) {
-            if(!this.visible) {
+        if (this.visible != wasVisible) {
+            if (!this.visible) {
                 this.tempScaling.set(this.object.scalingLocal);
                 this.object.scale([0, 0, 0]);
             } else {
@@ -43,18 +48,30 @@ WL.registerComponent('hit-test-location', {
                 this.object.setDirty();
             }
         }
-    },
-    xrSessionStart: function(session) {
-        session.requestReferenceSpace('viewer').then(function(refSpace) {
-            this.xrViewerSpace = refSpace;
-            session.requestHitTestSource({space: this.xrViewerSpace}).then(function(hitTestSource) {
-                this.xrHitTestSource = hitTestSource;
-            }.bind(this)).catch(console.error);
-        }.bind(this)).catch(console.error);
-    },
-    xrSessionEnd: function() {
-        if(!this.xrHitTestSource) return;
+    }
+
+    xrSessionStart(session) {
+        session
+            .requestReferenceSpace('viewer')
+            .then(
+                function (refSpace) {
+                    this.xrViewerSpace = refSpace;
+                    session
+                        .requestHitTestSource({space: this.xrViewerSpace})
+                        .then(
+                            function (hitTestSource) {
+                                this.xrHitTestSource = hitTestSource;
+                            }.bind(this)
+                        )
+                        .catch(console.error);
+                }.bind(this)
+            )
+            .catch(console.error);
+    }
+
+    xrSessionEnd() {
+        if (!this.xrHitTestSource) return;
         this.xrHitTestSource.cancel();
         this.xrHitTestSource = null;
-    },
-});
+    }
+}
