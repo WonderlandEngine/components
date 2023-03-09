@@ -2,19 +2,8 @@
   "name": "@wonderlandengine/components",
   "version": "0.9.6",
   "description": "Wonderland Engine's official component library.",
-  "main": "index.js",
-  "wonderlandengine": {},
-  "files": [
-    "*.js"
-  ],
-  "dependencies": {
-    "@wonderlandengine/api": "^0.9.2",
-    "gl-matrix": "^3.3.0",
-    "howler": "^2.2.1"
-  },
-  "devDependencies": {
-    "prettier": "^2.8.4"
-  },
+  "author": "Wonderland GmbH",
+  "license": "MIT",
   "scripts": {},
   "repository": {
     "type": "git",
@@ -25,10 +14,21 @@
     "wonderland",
     "components"
   ],
-  "author": "Wonderland GmbH",
-  "license": "MIT",
   "bugs": {
     "url": "https://github.com/WonderlandEngine/components/issues"
   },
-  "homepage": "https://github.com/WonderlandEngine/components#readme"
+  "homepage": "https://github.com/WonderlandEngine/components#readme",
+  "main": "index.js",
+  "wonderlandengine": {},
+  "files": [
+    "*.js"
+  ],
+  "dependencies": {
+    "@wonderlandengine/api": "^0.9.8",
+    "gl-matrix": "^3.3.0",
+    "howler": "^2.2.1"
+  },
+  "devDependencies": {
+    "prettier": "^2.8.4"
+  }
 }
