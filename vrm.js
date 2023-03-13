@@ -385,7 +385,9 @@ export class Vrm extends Component {
                     state: null,
                 };
                 Object.assign(springJoint, joint);
-                springJoint.node = this.engine.wrapObject(extensions.idMapping[springJoint.node]);
+                springJoint.node = this.engine.wrapObject(
+                    extensions.idMapping[springJoint.node]
+                );
                 joints.push(springJoint);
             }
 

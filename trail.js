@@ -90,11 +90,7 @@ export class Trail extends Component {
             vec3.normalize(offset, offset);
             const timeFraction = 1.0 - this.timeTillNext / this.interval;
             const fraction = (i - timeFraction) / this.segments;
-            vec3.scale(
-                offset,
-                offset,
-                ((this.taper ? fraction : 1.0) * this.width) / 2.0
-            );
+            vec3.scale(offset, offset, ((this.taper ? fraction : 1.0) * this.width) / 2.0);
 
             positions.set(i * 2, [
                 curr[0] - offset[0],

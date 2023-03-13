@@ -28,7 +28,7 @@ export class ImageTexture extends Component {
         this.engine.textures
             .load(this.url, 'anonymous')
             .then((texture) => {
-                const mat = this.material
+                const mat = this.material;
                 const shader = mat.shader;
                 if (shader === 'Flat Opaque Textured') {
                     mat.flatTexture = texture;

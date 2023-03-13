@@ -40,12 +40,12 @@ import {Component, Type} from '@wonderlandengine/api';
 export class ARCamera8thwall extends Component {
     static TypeName = '8thwall-camera';
     static Properties = {
-    /** Override the WL html overlays for handling camera/motion permissions and error handling */
-    useCustomUIOverlays: { type: Type.Bool, default: false },
-};
+        /** Override the WL html overlays for handling camera/motion permissions and error handling */
+        useCustomUIOverlays: {type: Type.Bool, default: false},
+    };
 
     /* 8thwall camera pipeline module name */
-    name ='wonderland-engine-8thwall-camera';
+    name = 'wonderland-engine-8thwall-camera';
 
     started = false;
 
@@ -59,7 +59,6 @@ export class ARCamera8thwall extends Component {
 
     promptForDeviceMotion() {
         return new Promise(async (resolve, reject) => {
-
             // Tell anyone who's interested that we want to get some user interaction
             window.dispatchEvent(new Event('8thwall-request-user-interaction'));
 
@@ -68,11 +67,11 @@ export class ARCamera8thwall extends Component {
                 try {
                     const motionEvent = await DeviceMotionEvent.requestPermission();
                     resolve(motionEvent);
-                } catch(exception) {
-                    reject(exception)
+                } catch (exception) {
+                    reject(exception);
                 }
             });
-        })
+        });
     }
 
     async getPermissions() {
@@ -86,8 +85,7 @@ export class ARCamera8thwall extends Component {
                 if (result !== 'granted') {
                     throw new Error('MotionEvent');
                 }
-            } catch(exception) {
-
+            } catch (exception) {
                 // User had no interaction with the page so far
                 if (exception.name === 'NotAllowedError') {
                     const motionEvent = await this.promptForDeviceMotion();
@@ -102,16 +100,19 @@ export class ARCamera8thwall extends Component {
 
         try {
             // make sure we get the camera stream
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: true,
+                audio: true,
+            });
 
             // If we successfully acquired the camera stream - we can stop it and wait until 8thwall requests it again
-            stream.getTracks().forEach((track) => { track.stop() });
-        } catch(exception) {
+            stream.getTracks().forEach((track) => {
+                track.stop();
+            });
+        } catch (exception) {
             throw new Error('Camera');
         }
     }
-
-
 
     init() {
         this.view = this.object.getComponent('view');
@@ -121,7 +122,6 @@ export class ARCamera8thwall extends Component {
         this.onCameraStatusChange = this.onCameraStatusChange.bind(this);
     }
 
-
     async start() {
         this.view = this.object.getComponent('view');
         if (!this.useCustomUIOverlays) {
@@ -130,22 +130,24 @@ export class ARCamera8thwall extends Component {
 
         try {
             await this.getPermissions();
-        } catch(error) {
+        } catch (error) {
             // User did not grant the camera or motionEvent permissions
-            window.dispatchEvent(new CustomEvent('8thwall-permission-fail', { detail: error }))
+            window.dispatchEvent(
+                new CustomEvent('8thwall-permission-fail', {detail: error})
+            );
             return;
         }
         await this.waitForXR8();
 
         XR8.XrController.configure({
-            disableWorldTracking: false
+            disableWorldTracking: false,
         });
 
         this.glTextureRenderer = XR8.GlTextureRenderer.pipelineModule();
         XR8.addCameraPipelineModules([
             this.glTextureRenderer, // Draws the camera feed.
             XR8.XrController.pipelineModule(), // Enables SLAM tracking.
-            this
+            this,
         ]);
 
         const config = {
@@ -155,10 +157,9 @@ export class ARCamera8thwall extends Component {
             canvas: Module.canvas,
             allowedDevices: XR8.XrConfig.device().ANY,
             ownRunLoop: false,
-        }
+        };
         XR8.run(config);
     }
-
 
     /**
      * @private
@@ -176,10 +177,15 @@ export class ARCamera8thwall extends Component {
         this.rotation = Array.from(rot);
 
         XR8.XrController.updateCameraProjectionMatrix({
-            origin: { x: pos[0], y: pos[1], z: pos[2] },
-            facing: { x: rot[0], y: rot[1], z: rot[2], w: rot[3] },
-            cam: { pixelRectWidth: Module.canvas.width, pixelRectHeight: Module.canvas.height, nearClipPlane: this.view.near, farClipPlane: this.view.far }
-        })
+            origin: {x: pos[0], y: pos[1], z: pos[2]},
+            facing: {x: rot[0], y: rot[1], z: rot[2], w: rot[3]},
+            cam: {
+                pixelRectWidth: Module.canvas.width,
+                pixelRectHeight: Module.canvas.height,
+                nearClipPlane: this.view.near,
+                farClipPlane: this.view.far,
+            },
+        });
 
         this.engine.scene.onPreRender.push(() => {
             gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null);
@@ -188,10 +194,9 @@ export class ARCamera8thwall extends Component {
         });
 
         this.engine.scene.onPostRender.push(() => {
-            XR8.runPostRender(Date.now())
+            XR8.runPostRender(Date.now());
         });
     }
-
 
     /**
      * @private
@@ -203,16 +208,14 @@ export class ARCamera8thwall extends Component {
         }
     }
 
-
     /**
-    * @private
-    * 8thwall pipeline function
-    */
+     * @private
+     * 8thwall pipeline function
+     */
     onUpdate(e) {
-        if (!e.processCpuResult.reality)
-            return;
+        if (!e.processCpuResult.reality) return;
 
-        const { rotation, position, intrinsics } = e.processCpuResult.reality;
+        const {rotation, position, intrinsics} = e.processCpuResult.reality;
 
         this.rotation[0] = rotation.x;
         this.rotation[1] = rotation.y;
@@ -240,16 +243,14 @@ export class ARCamera8thwall extends Component {
         }
     }
 
-
     /**
      * @private
      * 8thwall pipeline function
      */
     onException(error) {
         console.error('8thwall exception:', error);
-        window.dispatchEvent(new CustomEvent('8thwall-error', { detail: error }));
+        window.dispatchEvent(new CustomEvent('8thwall-error', {detail: error}));
     }
-
 
     waitForXR8() {
         return new Promise((resolve, _rej) => {
@@ -260,17 +261,18 @@ export class ARCamera8thwall extends Component {
             }
         });
     }
-
 }
 
 const OverlaysHandler = {
     init: function () {
-
         this.handleRequestUserInteraction = this.handleRequestUserInteraction.bind(this);
         this.handlePermissionFail = this.handlePermissionFail.bind(this);
         this.handleError = this.handleError.bind(this);
 
-        window.addEventListener('8thwall-request-user-interaction', this.handleRequestUserInteraction);
+        window.addEventListener(
+            '8thwall-request-user-interaction',
+            this.handleRequestUserInteraction
+        );
         window.addEventListener('8thwall-permission-fail', this.handlePermissionFail);
         window.addEventListener('8thwall-error', this.handleError);
     },
@@ -280,7 +282,6 @@ const OverlaysHandler = {
         window.addEventListener('8thwall-safe-to-request-permissions', () => {
             overlay.remove();
         });
-
     },
 
     handlePermissionFail: function (_reason) {
@@ -297,7 +298,7 @@ const OverlaysHandler = {
         document.body.appendChild(overlay);
         return overlay;
     },
-}
+};
 
 const requestPermissionOverlay = `
 <style>

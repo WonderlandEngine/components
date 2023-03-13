@@ -56,7 +56,9 @@ export class VideoTexture extends Component {
         this.video.playsInline = true;
         this.video.loop = this.loop;
         this.video.muted = this.muted;
-        this.video.addEventListener('playing', () => { this.loaded = true; });
+        this.video.addEventListener('playing', () => {
+            this.loaded = true;
+        });
 
         if (this.autoplay) {
             const playAfterUserGesture = () => {
@@ -90,10 +92,9 @@ export class VideoTexture extends Component {
         if ('requestVideoFrameCallback' in this.video) {
             this.video.requestVideoFrameCallback(this.updateVideo.bind(this));
         } else {
-            this.video.addEventListener(
-                'timeupdate',
-                () => { this.frameUpdateRequested = true; }
-            );
+            this.video.addEventListener('timeupdate', () => {
+                this.frameUpdateRequested = true;
+            });
         }
     }
 

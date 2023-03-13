@@ -26,7 +26,7 @@ const ORDERED_JOINTS = [
     'pinky-finger-phalanx-proximal',
     'pinky-finger-phalanx-intermediate',
     'pinky-finger-phalanx-distal',
-    'pinky-finger-tip'
+    'pinky-finger-tip',
 ];
 
 /**
