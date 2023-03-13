@@ -54,8 +54,6 @@ export class Cursor extends Component {
         this.collisionMask = 1 << this.collisionGroup;
         this.maxDistance = 100;
 
-        const sceneLoaded = this.onDestroy.bind(this);
-        this.engine.onSceneLoaded.push(sceneLoaded);
         this.onDestroyCallbacks = [
             () => {
                 const index = this.engine.onSceneLoaded.indexOf(sceneLoaded);
