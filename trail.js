@@ -64,7 +64,7 @@ export class Trail extends Component {
                 .set([i + 1, i + 0, i + 2, i + 2, i + 3, i + 1]);
         }
 
-        this.mesh = new Mesh({
+        this.mesh = new Mesh(this.engine, {
             vertexCount: vertexCount,
             indexData: this.indexData,
             indexType: MeshIndexType.UnsignedInt,
