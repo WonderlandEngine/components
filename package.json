@@ -4,6 +4,9 @@
     "description": "Wonderland Engine's official component library.",
     "author": "Wonderland GmbH",
     "license": "MIT",
+    "main": "./dist/index.js",
+    "module": "./dist/index.js",
+    "types": "./dist/index.d.ts",
     "scripts": {
         "build:ts": "tsc",
         "build:ts:watch": "tsc --watch",
@@ -23,17 +26,19 @@
         "url": "https://github.com/WonderlandEngine/components/issues"
     },
     "homepage": "https://github.com/WonderlandEngine/components#readme",
-    "main": "index.js",
     "wonderlandengine": {},
     "files": [
-        "*.js"
+        "dist/*.js",
+        "dist/*.d.ts"
     ],
     "dependencies": {
+        "@types/webxr": "^0.5.0",
         "@wonderlandengine/api": "^1.0.0-rc.2",
         "gl-matrix": "^3.3.0",
         "howler": "^2.2.1"
     },
     "devDependencies": {
-        "prettier": "^2.8.4"
+        "prettier": "^2.8.4",
+        "typescript": "^5.0.3"
     }
 }

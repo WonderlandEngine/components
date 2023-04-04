@@ -6,11 +6,11 @@
     "outDir": "dist",
     "declaration": true,
     "newLine": "LF",
-    "allowJs": false,
+    "allowJs": true,
     "strict": true,
-    "experimentalDecorators": true,
+    "experimentalDecorators": true
   },
 
-  "include": [ "./*.ts" ],
+  "include": [ "./*.ts", "./*.js" ],
   "exclude": [ "node_modules" ]
 }
