@@ -43,14 +43,6 @@ export class HowlerAudioSource extends Component {
             this.updatePosition();
             this.play();
         }
-
-        /* Stop sound after switching scenes */
-        const callback = () => {
-            this.stop();
-            const idx = this.engine.onSceneLoaded.indexOf(callback);
-            if (idx >= 0) this.engine.onSceneLoaded.splice(idx, 1);
-        };
-        this.engine.onSceneLoaded.push(callback);
     }
 
     update() {
@@ -90,5 +82,11 @@ export class HowlerAudioSource extends Component {
         if (!this.lastPlayedAudioId) return;
         this.audio.stop(this.lastPlayedAudioId);
         this.lastPlayedAudioId = null;
+    }
+
+    onDeactivate() {
+        /* Stop sound when component is deactivated or destroyed, e.g.
+         * when switching scenes */
+        this.stop();
     }
 }
