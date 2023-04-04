@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES6",
+    "moduleResolution": "node",
+    "outDir": "dist",
+    "declaration": true,
+    "newLine": "LF",
+    "allowJs": false,
+    "strict": true,
+    "experimentalDecorators": true,
+  },
+
+  "include": [ "./*.ts" ],
+  "exclude": [ "node_modules" ]
+}
