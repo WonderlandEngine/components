@@ -1,34 +1,39 @@
 {
-  "name": "@wonderlandengine/components",
-  "version": "1.0.0-rc.3",
-  "description": "Wonderland Engine's official component library.",
-  "author": "Wonderland GmbH",
-  "license": "MIT",
-  "scripts": {},
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/WonderlandEngine/components.git"
-  },
-  "keywords": [
-    "webxr",
-    "wonderland",
-    "components"
-  ],
-  "bugs": {
-    "url": "https://github.com/WonderlandEngine/components/issues"
-  },
-  "homepage": "https://github.com/WonderlandEngine/components#readme",
-  "main": "index.js",
-  "wonderlandengine": {},
-  "files": [
-    "*.js"
-  ],
-  "dependencies": {
-    "@wonderlandengine/api": "^1.0.0-rc.2",
-    "gl-matrix": "^3.3.0",
-    "howler": "^2.2.1"
-  },
-  "devDependencies": {
-    "prettier": "^2.8.4"
-  }
+    "name": "@wonderlandengine/components",
+    "version": "1.0.0-rc.3",
+    "description": "Wonderland Engine's official component library.",
+    "author": "Wonderland GmbH",
+    "license": "MIT",
+    "scripts": {
+        "build:ts": "tsc",
+        "build:ts:watch": "tsc --watch",
+        "prepublishOnly": "npm run build:ts",
+        "pretty": "prettier --config ./prettierrc.json --write ./src"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/WonderlandEngine/components.git"
+    },
+    "keywords": [
+        "webxr",
+        "wonderland",
+        "components"
+    ],
+    "bugs": {
+        "url": "https://github.com/WonderlandEngine/components/issues"
+    },
+    "homepage": "https://github.com/WonderlandEngine/components#readme",
+    "main": "index.js",
+    "wonderlandengine": {},
+    "files": [
+        "*.js"
+    ],
+    "dependencies": {
+        "@wonderlandengine/api": "^1.0.0-rc.2",
+        "gl-matrix": "^3.3.0",
+        "howler": "^2.2.1"
+    },
+    "devDependencies": {
+        "prettier": "^2.8.4"
+    }
 }
