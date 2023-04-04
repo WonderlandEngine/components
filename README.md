@@ -10,9 +10,12 @@ As npm packages only support three digits of [semantic versioning](https://docs.
 the package version **does not match the editor version**.
 Only the first two digits match the editor, the rest should be seen as a "package version".
 
-# Building
+# Usage
 
+Install the components to your project's package as follows:
 ```
-npm i
-npm run build
+npm i --save @wonderlandengine/components
 ```
+
+Wonderland Editor will automatically detect all components in the package add auto-import
+those that you use in the scene.
