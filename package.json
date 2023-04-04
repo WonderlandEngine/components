@@ -4,6 +4,7 @@
     "description": "Wonderland Engine's official component library.",
     "author": "Wonderland GmbH",
     "license": "MIT",
+    "type": "module",
     "main": "./dist/index.js",
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
