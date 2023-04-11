@@ -19,8 +19,8 @@ export class PlayerHeight extends Component {
     }
 
     onActivate() {
-        this.engine.onXRSessionStart.add(this.onSessionEndCallback);
-        this.engine.onXRSessionEnd.add(this.onSessionEndCallback);
+        this.engine.onXRSessionStart.add(this.onSessionStartCallback);
+        this.engine.onXRSessionEnd.add(this.onSessionStartCallback);
     }
 
     onDeactivate() {
