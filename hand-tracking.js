@@ -1,5 +1,6 @@
 import {Component, Type} from '@wonderlandengine/api';
 import {vec3, quat, quat2} from 'gl-matrix';
+import {setXRRigidTransformLocal} from './utils/webxr.js';
 
 const ORDERED_JOINTS = [
     'wrist',
@@ -118,7 +119,7 @@ export class HandTracking extends Component {
 
     update(dt) {
         if (!this.session) {
-            if (this.engine.xrSession) this.setupVREvents(this.engine.xrSession);
+            if (this.engine.xr) this.setupVREvents(this.engine.xr.session);
         }
 
         if (!this.session) return;
@@ -136,24 +137,12 @@ export class HandTracking extends Component {
                 this.hasPose = true;
 
                 if (inputSource.hand.get('wrist') !== null) {
-                    const WebXR = this.engine.wasm.WebXR;
                     const p = Module['webxr_frame'].getJointPose(
                         inputSource.hand.get('wrist'),
-                        WebXR.refSpaces[WebXR.refSpace]
+                        this.engine.xr.currentReferenceSpace
                     );
                     if (p) {
-                        this.object.resetTranslationRotation();
-                        this.object.transformLocal.set([
-                            p.transform.orientation.x,
-                            p.transform.orientation.y,
-                            p.transform.orientation.z,
-                            p.transform.orientation.w,
-                        ]);
-                        this.object.translate([
-                            p.transform.position.x,
-                            p.transform.position.y,
-                            p.transform.position.z,
-                        ]);
+                        setXRRigidTransformLocal(this.object, p.transform);
                     }
                 }
 
@@ -169,10 +158,9 @@ export class HandTracking extends Component {
 
                     let jointPose = null;
                     if (inputSource.hand.get(jointName) !== null) {
-                        const WebXR = this.engine.wasm.WebXR;
-                        jointPose = Module['webxr_frame'].getJointPose(
+                        jointPose = this.engine.xr.frame.getJointPose(
                             inputSource.hand.get(jointName),
-                            WebXR.refSpaces[WebXR.refSpace]
+                            this.engine.xr.currentReferenceSpace
                         );
                     }
                     if (jointPose !== null) {
@@ -192,18 +180,7 @@ export class HandTracking extends Component {
                                 jointPose.transform.orientation.w,
                             ]);
                         } else {
-                            joint.resetTransform();
-                            joint.transformLocal.set([
-                                jointPose.transform.orientation.x,
-                                jointPose.transform.orientation.y,
-                                jointPose.transform.orientation.z,
-                                jointPose.transform.orientation.w,
-                            ]);
-                            joint.translate([
-                                jointPose.transform.position.x,
-                                jointPose.transform.position.y,
-                                jointPose.transform.position.z,
-                            ]);
+                            setXRRigidTransformLocal(this.object, p.transform);
 
                             /* Last joint radius of each finger is null */
                             const r = jointPose.radius || 0.007;
