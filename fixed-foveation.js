@@ -15,7 +15,7 @@ export class FixedFoveation extends Component {
     };
 
     start() {
-        if (this.engine.xrSession) {
+        if (this.engine.xr) {
             this.setFixedFoveation();
         } else {
             this.engine.onXRSessionStart.push(this.setFixedFoveation.bind(this));
@@ -23,6 +23,6 @@ export class FixedFoveation extends Component {
     }
 
     setFixedFoveation() {
-        this.engine.xrBaseLayer.fixedFoveation = this.fixedFoveation;
+        this.engine.xr.baseLayer.fixedFoveation = this.fixedFoveation;
     }
 }
