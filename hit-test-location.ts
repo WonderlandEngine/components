@@ -1,5 +1,5 @@
 import {Component} from '@wonderlandengine/api';
-import {quat2} from 'gl-matrix';
+import {setXRRigidTransformLocal} from './utils/webxr.js';
 
 /**
  * Sets up a [WebXR Device API "Hit Test"](https://immersive-web.github.io/hit-test/)
@@ -13,27 +13,32 @@ export class HitTestLocation extends Component {
     static TypeName = 'hit-test-location';
     static Properties = {};
 
-    init() {
-        this.engine.onXRSessionStart.push(this.xrSessionStart.bind(this));
-        this.engine.onXRSessionEnd.push(this.xrSessionEnd.bind(this));
+    tempScaling = new Float32Array(3);
+    visible = false;
+    xrHitTestSource: XRHitTestSource | null = null;
 
-        this.tempScaling = new Float32Array(3);
+    start() {
+        this.engine.onXRSessionStart.add(this.xrSessionStart.bind(this));
+        this.engine.onXRSessionEnd.add(this.xrSessionEnd.bind(this));
+
         this.tempScaling.set(this.object.scalingLocal);
-        this.visible = false;
         this.object.scale([0, 0, 0]);
     }
 
-    update(dt) {
+    update() {
         const wasVisible = this.visible;
         if (this.xrHitTestSource) {
             const frame = this.engine.xrFrame;
             if (!frame) return;
             let hitTestResults = frame.getHitTestResults(this.xrHitTestSource);
             if (hitTestResults.length > 0) {
-                let pose = hitTestResults[0].getPose(this.xrViewerSpace);
-                this.visible = true;
-                quat2.fromMat4(this.object.transformLocal, pose.transform.matrix);
-                this.object.setDirty();
+                let pose = hitTestResults[0].getPose(
+                    this.engine.xr!.referenceSpaceForType('viewer')!
+                );
+                this.visible = !!pose;
+                if (pose) {
+                    setXRRigidTransformLocal(this.object, pose.transform);
+                }
             } else {
                 this.visible = false;
             }
@@ -50,22 +55,28 @@ export class HitTestLocation extends Component {
         }
     }
 
-    xrSessionStart(session) {
-        session
-            .requestReferenceSpace('viewer')
-            .then(
-                function (refSpace) {
-                    this.xrViewerSpace = refSpace;
-                    session
-                        .requestHitTestSource({space: this.xrViewerSpace})
-                        .then(
-                            function (hitTestSource) {
-                                this.xrHitTestSource = hitTestSource;
-                            }.bind(this)
-                        )
-                        .catch(console.error);
-                }.bind(this)
-            )
+    getHitTestResults() {
+        if (!this.engine.xr?.frame) return [];
+        /* May happen if the hit test source couldn't be created */
+        if (!this.xrHitTestSource) return [];
+        return this.engine.xr.frame.getHitTestResults(this.xrHitTestSource);
+    }
+
+    xrSessionStart(session: XRSession) {
+        if (session.requestHitTestSource === undefined) {
+            console.error(
+                'hit-test-location: hit test feature not available. Deactivating component.'
+            );
+            this.active = false;
+            return;
+        }
+
+        const viewerSpace = this.engine.xr!.referenceSpaceForType('viewer')!;
+        session!
+            .requestHitTestSource({space: viewerSpace})!
+            .then((hitTestSource) => {
+                this.xrHitTestSource = hitTestSource;
+            })
             .catch(console.error);
     }
 
