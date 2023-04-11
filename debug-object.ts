@@ -1,4 +1,5 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component, Object3D} from '@wonderlandengine/api';
+import {property} from '@wonderlandengine/api/decorators.js';
 import {quat2} from 'gl-matrix';
 
 /**
@@ -11,22 +12,18 @@ import {quat2} from 'gl-matrix';
  */
 export class DebugObject extends Component {
     static TypeName = 'debug-object';
-    static Properties = {
-        /** A second object to print the name of */
-        obj: {type: Type.Object},
-    };
 
-    start() {}
+    /** A second object to print the name of */
+    @property.object()
+    obj: Object3D | null = null;
 
-    init() {
-        let origin = [0, 0, 0];
+    start() {
+        let origin = new Float32Array(3);
         quat2.getTranslation(origin, this.object.transformWorld);
-        console.log('Debug Object:', this.object.name);
-        console.log('Other object:', this.obj.name);
+        console.log('Debug object:', this.object.name);
+        console.log('Other object:', this.obj?.name);
         console.log('\ttranslation', origin);
         console.log('\ttransformWorld', this.object.transformWorld);
         console.log('\ttransformLocal', this.object.transformLocal);
     }
-
-    update() {}
 }
