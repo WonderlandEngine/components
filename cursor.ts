@@ -109,7 +109,7 @@ export class Cursor extends Component {
         }
 
         this.globalTarget = this.object.addComponent(CursorTarget);
-        this.viewComponent = this.object.getComponent('view');
+        this.viewComponent = this.object.getComponent(ViewComponent);
         /* If this object also has a view component, we will enable inverse-projected mouse clicks,
          * otherwise just use the objects transformation */
         if (this.viewComponent != null) {
