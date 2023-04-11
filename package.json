@@ -30,7 +30,9 @@
     "wonderlandengine": {},
     "files": [
         "dist/*.js",
-        "dist/*.d.ts"
+        "dist/utils/*.js",
+        "dist/*.d.ts",
+        "dist/utils/*.d.ts"
     ],
     "dependencies": {
         "@types/webxr": "^0.5.0",
