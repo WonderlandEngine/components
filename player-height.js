@@ -10,26 +10,32 @@ export class PlayerHeight extends Component {
         height: {type: Type.Float, default: 1.75},
     };
 
-    init() {
-        this.engine.onXRSessionStart.push(this.onXRSessionStart.bind(this));
-        this.engine.onXRSessionEnd.push(this.onXRSessionEnd.bind(this));
-    }
-
     start() {
         this.object.resetTranslationRotation();
         this.object.translate([0.0, this.height, 0.0]);
+
+        this.onSessionStartCallback = this.onXRSessionStart.bind(this);
+        this.onSessionEndCallback = this.onXRSessionEnd.bind(this);
+    }
+
+    onActivate() {
+        this.engine.onXRSessionStart.add(this.onSessionEndCallback);
+        this.engine.onXRSessionEnd.add(this.onSessionEndCallback);
+    }
+
+    onDeactivate() {
+        this.engine.onXRSessionStart.remove(this.onSessionEndCallback);
+        this.engine.onXRSessionEnd.remove(this.onSessionEndCallback);
     }
 
     onXRSessionStart() {
-        const WebXR = this.engine.wasm.WebXR;
-        if (!['local', 'viewer'].includes(WebXR.refSpace)) {
+        if (!['local', 'viewer'].includes(this.engine.xr.currentReferenceSpace)) {
             this.object.resetTranslationRotation();
         }
     }
 
     onXRSessionEnd() {
-        const WebXR = this.engine.wasm.WebXR;
-        if (!['local', 'viewer'].includes(WebXR.refSpace)) {
+        if (!['local', 'viewer'].includes(this.engine.xr.currentReferenceSpace)) {
             this.object.resetTranslationRotation();
             this.object.translate([0.0, this.height, 0.0]);
         }
