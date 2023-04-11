@@ -12,7 +12,7 @@
         "build:ts": "tsc",
         "build:ts:watch": "tsc --watch",
         "prepublishOnly": "npm run build:ts",
-        "pretty": "prettier --config ./prettierrc.json --write ./src"
+        "pretty": "prettier --config ./.prettierrc.json --write ./src"
     },
     "repository": {
         "type": "git",
