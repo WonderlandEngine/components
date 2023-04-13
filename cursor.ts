@@ -6,6 +6,7 @@ import {
     ViewComponent,
     RayHit,
 } from '@wonderlandengine/api';
+import {property} from '@wonderlandengine/api/decorators.js';
 import {vec3, mat4} from 'gl-matrix';
 import {CursorTarget} from './cursor-target.js';
 
@@ -27,34 +28,6 @@ import {CursorTarget} from './cursor-target.js';
  */
 export class Cursor extends Component {
     static TypeName = 'cursor';
-    static Properties = {
-        /** Collision group for the ray cast. Only objects in this group will be affected by this cursor. */
-        collisionGroup: {type: Type.Int, default: 1},
-        /** (optional) Object that visualizes the cursor's ray. */
-        cursorRayObject: {type: Type.Object},
-        /** Axis along which to scale the `cursorRayObject`. */
-        cursorRayScalingAxis: {
-            type: Type.Enum,
-            values: ['x', 'y', 'z', 'none'],
-            default: 'z',
-        },
-        /** (optional) Object that visualizes the cursor's hit location. */
-        cursorObject: {type: Type.Object},
-        /** Handedness for VR cursors to accept trigger events only from respective controller. */
-        handedness: {
-            type: Type.Enum,
-            values: ['input component', 'left', 'right', 'none'],
-            default: 'input component',
-        },
-        /** Mode for raycasting, whether to use PhysX or simple collision components */
-        rayCastMode: {
-            type: Type.Enum,
-            values: ['collision', 'physx'],
-            default: 'collision',
-        },
-        /** Whether to set the CSS style of the mouse cursor on desktop */
-        styleCursor: {type: Type.Bool, default: true},
-    };
 
     private collisionMask = 0;
     private maxDistance = 100;
@@ -71,21 +44,46 @@ export class Cursor extends Component {
     private lastIsDown = false;
     private arTouchDown = false;
 
-    cursorPos = new Float32Array(3);
     private lastCursorPosOnTarget = new Float32Array(3);
     private hoveringObject: Object3D | null = null;
     private hoveringObjectTarget: CursorTarget | null = null;
     private cursorRayScale = new Float32Array(3);
 
-    globalTarget: CursorTarget | null = null;
+    /**
+     * Global target is a dummy component that lets you receive
+     * global cursor events.
+     */
+    globalTarget: CursorTarget = new CursorTarget(this.engine!);
 
-    /* TODO: Move to decorators, once available */
+    /** World position of the cursor */
+    cursorPos = new Float32Array(3);
+
+    /** Collision group for the ray cast. Only objects in this group will be affected by this cursor. */
+    @property.int(1)
     collisionGroup = 1;
+
+    /** (optional) Object that visualizes the cursor's ray. */
+    @property.object()
     cursorRayObject: Object3D | null = null;
+
+    /** Axis along which to scale the `cursorRayObject`. */
+    @property.enum(['x', 'y', 'z', 'none'], 'z')
     cursorRayScalingAxis: number = 2;
+
+    /** (optional) Object that visualizes the cursor's hit location. */
+    @property.object()
     cursorObject: Object3D | null = null;
+
+    /** Handedness for VR cursors to accept trigger events only from respective controller. */
+    @property.enum(['input component', 'left', 'right', 'none'], 'input component')
     handedness: number | string = 0;
+
+    /** Mode for raycasting, whether to use PhysX or simple collision components */
+    @property.enum(['collision', 'physx'], 'collision')
     rayCastMode: number | string = 0;
+
+    /** Whether to set the CSS style of the mouse cursor on desktop */
+    @property.bool(true)
     styleCursor: boolean = true;
 
     start() {
@@ -108,7 +106,6 @@ export class Cursor extends Component {
             this.handedness = ['left', 'right', 'none'][(this.handedness as number) - 1];
         }
 
-        this.globalTarget = this.object.addComponent(CursorTarget);
         this.viewComponent = this.object.getComponent(ViewComponent);
         /* If this object also has a view component, we will enable inverse-projected mouse clicks,
          * otherwise just use the objects transformation */
