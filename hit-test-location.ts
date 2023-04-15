@@ -1,4 +1,5 @@
-import {Component} from '@wonderlandengine/api';
+import {Component, Emitter} from '@wonderlandengine/api';
+import {property} from '@wonderlandengine/api/decorators.js';
 import {setXRRigidTransformLocal} from './utils/webxr.js';
 
 /**
@@ -11,11 +12,26 @@ import {setXRRigidTransformLocal} from './utils/webxr.js';
  */
 export class HitTestLocation extends Component {
     static TypeName = 'hit-test-location';
-    static Properties = {};
 
     tempScaling = new Float32Array(3);
     visible = false;
     xrHitTestSource: XRHitTestSource | null = null;
+
+    /** Reference space for creating the hit test when the session starts */
+    xrReferenceSpace: XRReferenceSpace | null = null;
+
+    /**
+     * For maintaining backwards compatibility: Whether to scale the object to 0 and back.
+     * @deprecated Use onHitLost and onHitFound instead.
+     */
+    @property.bool(true)
+    scaleObject = true;
+
+    /** Emits an event when the hit test switches from visible to invisible */
+    onHitLost = new Emitter<[HitTestLocation]>();
+
+    /** Emits an event when the hit test switches from invisible to visible */
+    onHitFound = new Emitter<[HitTestLocation]>();
 
     start() {
         this.engine.onXRSessionStart.add(this.xrSessionStart.bind(this));
@@ -25,8 +41,19 @@ export class HitTestLocation extends Component {
             this.xrSessionStart(this.engine.xr.session);
         }
 
-        this.tempScaling.set(this.object.scalingLocal);
-        this.object.scale([0, 0, 0]);
+        if (this.scaleObject) {
+            this.tempScaling.set(this.object.scalingLocal);
+            this.object.scale([0, 0, 0]);
+
+            this.onHitLost.add(() => {
+                this.tempScaling.set(this.object.scalingLocal);
+                this.object.scale([0, 0, 0]);
+            });
+            this.onHitFound.add(() => {
+                this.object.scalingLocal.set(this.tempScaling);
+                this.object.setDirty();
+            });
+        }
     }
 
     update() {
@@ -34,11 +61,10 @@ export class HitTestLocation extends Component {
         if (this.xrHitTestSource) {
             const frame = this.engine.xrFrame;
             if (!frame) return;
+
             let hitTestResults = frame.getHitTestResults(this.xrHitTestSource);
             if (hitTestResults.length > 0) {
-                let pose = hitTestResults[0].getPose(
-                    this.engine.xr!.referenceSpaceForType('viewer')!
-                );
+                let pose = hitTestResults[0].getPose(this.engine.xr!.currentReferenceSpace);
                 this.visible = !!pose;
                 if (pose) {
                     setXRRigidTransformLocal(this.object, pose.transform);
@@ -48,14 +74,9 @@ export class HitTestLocation extends Component {
             }
         }
 
+        /* Emit events for visible state change */
         if (this.visible != wasVisible) {
-            if (!this.visible) {
-                this.tempScaling.set(this.object.scalingLocal);
-                this.object.scale([0, 0, 0]);
-            } else {
-                this.object.scalingLocal.set(this.tempScaling);
-                this.object.setDirty();
-            }
+            (this.visible ? this.onHitFound : this.onHitLost).notify(this);
         }
     }
 
@@ -75,9 +96,12 @@ export class HitTestLocation extends Component {
             return;
         }
 
-        const viewerSpace = this.engine.xr!.referenceSpaceForType('viewer')!;
         session!
-            .requestHitTestSource({space: viewerSpace})!
+            .requestHitTestSource({
+                space:
+                    this.xrReferenceSpace ??
+                    this.engine.xr!.referenceSpaceForType('viewer')!,
+            })!
             .then((hitTestSource) => {
                 this.xrHitTestSource = hitTestSource;
             })
