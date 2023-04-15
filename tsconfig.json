@@ -12,5 +12,5 @@
   },
 
   "include": [ "./*.ts", "./*.js", "./utils/*.ts" ],
-  "exclude": [ "node_modules" ]
+  "exclude": [ "node_modules", "web-test-runner.config.js" ]
 }
