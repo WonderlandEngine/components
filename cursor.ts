@@ -138,12 +138,14 @@ export class Cursor extends Component {
             this.engine.onXRSessionStart.remove(onXRSessionStart);
         });
 
+        /* Set initial origin and direction */
+        this.object.getTranslationWorld(this.origin);
+        this.object.getForward(this.direction);
+
         if (this.cursorRayObject) {
             this.cursorRayScale.set(this.cursorRayObject.scalingLocal);
 
             /* Set ray to a good default distance of the cursor of 1m */
-            this.object.getTranslationWorld(this.origin);
-            this.object.getForward(this.direction);
             this._setCursorRayTransform(
                 vec3.add(this.tempVec, this.origin, this.direction)
             );
