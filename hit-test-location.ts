@@ -80,11 +80,11 @@ export class HitTestLocation extends Component {
         }
     }
 
-    getHitTestResults() {
-        if (!this.engine.xr?.frame) return [];
+    getHitTestResults(frame: XRFrame | null = this.engine.xr?.frame ?? null) {
+        if (!frame) return [];
         /* May happen if the hit test source couldn't be created */
         if (!this.xrHitTestSource) return [];
-        return this.engine.xr.frame.getHitTestResults(this.xrHitTestSource);
+        return frame.getHitTestResults(this.xrHitTestSource);
     }
 
     xrSessionStart(session: XRSession) {
