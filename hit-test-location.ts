@@ -21,6 +21,10 @@ export class HitTestLocation extends Component {
         this.engine.onXRSessionStart.add(this.xrSessionStart.bind(this));
         this.engine.onXRSessionEnd.add(this.xrSessionEnd.bind(this));
 
+        if (this.engine.xr) {
+            this.xrSessionStart(this.engine.xr.session);
+        }
+
         this.tempScaling.set(this.object.scalingLocal);
         this.object.scale([0, 0, 0]);
     }
