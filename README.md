@@ -19,3 +19,23 @@ npm i --save @wonderlandengine/components
 
 Wonderland Editor will automatically detect all components in the package add auto-import
 those that you use in the scene.
+
+# Development
+
+Start by installing all dependencies:
+
+```
+npm install
+```
+
+To build the TypeScript code, run the `build:ts` or `build:ts:watch` script:
+```
+npm run build:ts:watch
+```
+
+# Running Tests
+
+Some components have automated tests, you can run them with the `test` and `test:watch` scripts:
+```
+npm run test:watch
+```
