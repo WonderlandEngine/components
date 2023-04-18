@@ -5,10 +5,27 @@ import {
     InputComponent,
     ViewComponent,
     RayHit,
+    ListenerCallback,
 } from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {vec3, mat4} from 'gl-matrix';
 import {CursorTarget} from './cursor-target.js';
+
+const TOUCHPAD_PROFILES = [
+    'generic-trigger-squeeze-touchpad-thumbstick',
+    'generic-trigger-touchpad-thumbstick',
+    'generic-trigger-squeeze-touchpad',
+    'generic-trigger-touchpad',
+    'generic-touchpad',
+    'generic-touchscreen',
+];
+
+const THUMBSTICK_PROFILES = [
+    'generic-trigger-squeeze-touchpad-thumbstick',
+    'generic-trigger-touchpad-thumbstick',
+    'generic-trigger-squeeze-thumbstick',
+    'generic-trigger-thumbstick',
+];
 
 /**
  * 3D cursor for desktop/mobile/VR.
@@ -48,6 +65,11 @@ export class Cursor extends Component {
     private hoveringObject: Object3D | null = null;
     private hoveringObjectTarget: CursorTarget | null = null;
     private cursorRayScale = new Float32Array(3);
+    private _wheelDeltaX = 0;
+    private _wheelDeltaY = 0;
+    private _sessionListener!: ListenerCallback<[ XRSession, XRSessionMode ]>;
+    private _xrInput: XRInputSource | null = null;
+    private _xrLastHandedness: XRHandedness | null = null;
 
     /**
      * Global target is a dummy component that lets you receive
@@ -86,6 +108,28 @@ export class Cursor extends Component {
     @property.bool(true)
     styleCursor: boolean = true;
 
+    /** Should wheel events be emulated with thumbsticks in VR? */
+    @property.bool(false)
+    emulateXRWheel!: boolean;
+
+    /** Emulated wheel speed in pixels */
+    @property.float(100.0)
+    emulatedXRWheelSpeed!: number;
+
+    /** Emulated wheel deadzone, in a range from 0.0 to 1.0 */
+    @property.float(0.1)
+    emulatedXRWheelDeadzone!: number;
+
+    init() {
+        this._sessionListener = this.updateXRSession.bind(this);
+        this.engine.onXRSessionStart.add(this._sessionListener);
+    }
+
+    destroy() {
+        this.updateXRSession(null);
+        this.engine.onXRSessionStart.remove(this._sessionListener);
+    }
+
     start() {
         this.collisionMask = 1 << this.collisionGroup;
 
@@ -118,6 +162,8 @@ export class Cursor extends Component {
             this.engine.canvas!.addEventListener('pointerdown', onPointerDown);
             const onPointerUp = this.onPointerUp.bind(this);
             this.engine.canvas!.addEventListener('pointerup', onPointerUp);
+            const onWheel = this.onWheel.bind(this);
+            this.engine.canvas!.addEventListener('wheel', onWheel);
 
             mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
             const onViewportResize = this.onViewportResize.bind(this);
@@ -128,6 +174,7 @@ export class Cursor extends Component {
                 this.engine.canvas!.removeEventListener('pointermove', onPointerMove);
                 this.engine.canvas!.removeEventListener('pointerdown', onPointerDown);
                 this.engine.canvas!.removeEventListener('pointerup', onPointerUp);
+                this.engine.canvas!.removeEventListener('wheel', onWheel);
                 window.removeEventListener('resize', onViewportResize);
             });
         }
@@ -147,6 +194,53 @@ export class Cursor extends Component {
             this._setCursorRayTransform(
                 vec3.add(this.tempVec, this.origin, this.direction)
             );
+        }
+    }
+
+    private updateXRSession(session: XRSession | null) {
+        if (session === null) {
+            this._xrInput = null;
+            return;
+        }
+
+        session.addEventListener('inputsourceschange', this.handleXRInputChange.bind(this));
+    }
+
+    private handleXRInputChange(e: XRInputSourceChangeEvent) {
+        let needsRecheck = false;
+        if (this._xrInput !== null) {
+            if (this._xrLastHandedness !== this.handedness) {
+                this._xrInput = null;
+                needsRecheck = true;
+            } else {
+                for (const removed of e.removed) {
+                    if (this._xrInput === removed) {
+                        this._xrInput = null;
+                        needsRecheck = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        this._xrLastHandedness = this.handedness as XRHandedness;
+
+        for (const added of e.added) {
+            if (added.handedness === this.handedness) {
+                this._xrInput = added;
+                return;
+            }
+        }
+
+        if (!(needsRecheck && this.engine.xr)) {
+            return;
+        }
+
+        for (const source of this.engine.xr.session.inputSources) {
+            if (source.handedness === this.handedness) {
+                this._xrInput = source;
+                return;
+            }
         }
     }
 
@@ -182,11 +276,95 @@ export class Cursor extends Component {
         }
     }
 
-    update() {
-        this.doUpdate(false);
+    private emulateWheelAxis(axisIn: number, axisCur = 0): number {
+        if (Math.abs(axisIn) >= this.emulatedXRWheelDeadzone) {
+            return axisCur + axisIn;
+        } else {
+            return axisCur;
+        }
     }
 
-    doUpdate(doClick: boolean) {
+    private emulateWheel(dt: number, source: XRInputSource): boolean {
+        const gamepad = source.gamepad;
+        if (!gamepad) {
+            return false;
+        }
+
+        const axes = gamepad.axes;
+        let dx = 0, dy = 0, fallback = true;
+
+        // prefer left stick or touchpad, but fall back to primary/right stick.
+        // if it's not known which thumbsticks/touchpads are supported, then
+        // allow input from any axes
+        if (gamepad.mapping === 'xr-standard') {
+            // standard xr controller, try to match a generic profile
+            for (const profile of source.profiles) {
+                if (TOUCHPAD_PROFILES.indexOf(profile) !== -1) {
+                    // prefer touchpad
+                    dx = this.emulateWheelAxis(axes[0]);
+                    dy = this.emulateWheelAxis(axes[1]);
+                    break;
+                } else if (THUMBSTICK_PROFILES.indexOf(profile) !== -1) {
+                    // prefer thumbstick
+                    dx = this.emulateWheelAxis(axes[2]);
+                    dy = this.emulateWheelAxis(axes[3]);
+                    break;
+                }
+            }
+        }
+
+        // non-standard or unsupported xr standard controller, fall back to any
+        // axes
+        if (fallback) {
+            dx = this.emulateWheelAxis(axes[0]);
+            dx = this.emulateWheelAxis(axes[2], dx);
+            dy = this.emulateWheelAxis(axes[1]);
+            dy = this.emulateWheelAxis(axes[3], dy);
+        }
+
+        // apply speed and delta time multiplier
+        const effectiveSpeed = this.emulatedXRWheelSpeed * dt;
+        dx *= effectiveSpeed;
+        dy *= effectiveSpeed;
+
+        if (dx !== 0 || dy !== 0) {
+            this._wheelDeltaX = dx;
+            this._wheelDeltaY = dy;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    update(dt: number) {
+        if (this._xrLastHandedness !== this.handedness) {
+            this._xrInput = null;
+            this._xrLastHandedness = this.handedness as XRHandedness;
+
+            if (this.engine.xr) {
+                for (const source of this.engine.xr.session.inputSources) {
+                    if (source.handedness === this.handedness) {
+                        this._xrInput = source;
+                    }
+                }
+            }
+        }
+
+        let doWheel = false;
+        if (this.emulateXRWheel && this.engine.xr) {
+            if (this.input) {
+                if (this.input.xrInputSource) {
+                    doWheel = this.emulateWheel(dt, this.input.xrInputSource);
+                }
+            } else if (this._xrInput) {
+                doWheel = this.emulateWheel(dt, this._xrInput);
+            }
+        }
+
+        this.doUpdate(false, doWheel);
+    }
+
+    doUpdate(doClick: boolean, doWheel: boolean) {
         /* If in VR, set the cursor ray based on object transform */
         if (this.engine.xrSession) {
             /* Since Google Cardboard tap is registered as arTouchDown without a gamepad, we need to check for gamepad presence */
@@ -224,7 +402,7 @@ export class Cursor extends Component {
             this.cursorPos.fill(0);
         }
 
-        this.hoverBehaviour(rayHit, doClick);
+        this.hoverBehaviour(rayHit, doClick, doWheel);
 
         if (this.cursorObject) {
             if (
@@ -240,7 +418,7 @@ export class Cursor extends Component {
         }
     }
 
-    hoverBehaviour(rayHit: RayHit, doClick: boolean) {
+    hoverBehaviour(rayHit: RayHit, doClick: boolean, doWheel: boolean) {
         if (rayHit.hitCount > 0) {
             if (!this.hoveringObject || !this.hoveringObject.equals(rayHit.objects[0])) {
                 /* Unhover previous, if exists */
@@ -294,6 +472,12 @@ export class Cursor extends Component {
                 if (cursorTarget) cursorTarget.onClick.notify(this.hoveringObject, this);
                 this.globalTarget!.onClick.notify(this.hoveringObject, this);
             }
+
+            /* Wheel */
+            if (doWheel) {
+                if (cursorTarget) cursorTarget.onWheel.notify(this.hoveringObject, this);
+                this.globalTarget!.onWheel.notify(this.hoveringObject, this);
+            }
         } else if (this.hoveringObject && rayHit.hitCount == 0) {
             const cursorTarget = this.hoveringObject.getComponent(CursorTarget);
             if (cursorTarget) cursorTarget.onUnhover.notify(this.hoveringObject, this);
@@ -336,7 +520,7 @@ export class Cursor extends Component {
     /** 'select' event listener */
     onSelect(e: XRInputSourceEvent) {
         if (e.inputSource.handedness != this.handedness) return;
-        this.doUpdate(true);
+        this.doUpdate(true, false);
     }
 
     /** 'selectstart' event listener */
@@ -363,7 +547,7 @@ export class Cursor extends Component {
             bounds.height
         );
 
-        this.hoverBehaviour(rayHit, false);
+        this.hoverBehaviour(rayHit, false, false);
     }
 
     /** 'click' event listener */
@@ -375,7 +559,7 @@ export class Cursor extends Component {
             bounds.width,
             bounds.height
         );
-        this.hoverBehaviour(rayHit, true);
+        this.hoverBehaviour(rayHit, true, false);
     }
 
     /** 'pointerdown' event listener */
@@ -391,7 +575,7 @@ export class Cursor extends Component {
         );
         this.isDown = true;
 
-        this.hoverBehaviour(rayHit, false);
+        this.hoverBehaviour(rayHit, false, false);
     }
 
     /** 'pointerup' event listener */
@@ -407,7 +591,36 @@ export class Cursor extends Component {
         );
         this.isDown = false;
 
-        this.hoverBehaviour(rayHit, false);
+        this.hoverBehaviour(rayHit, false, false);
+    }
+
+    /** 'wheel' event listener */
+    onWheel(e: WheelEvent) {
+        const bounds = this.engine.canvas!.getBoundingClientRect();
+        const rayHit = this.updateMousePos(e.clientX, e.clientY, bounds.width, bounds.height);
+
+        let deltaX = e.deltaX;
+        let deltaY = e.deltaY;
+
+        // XXX on firefox, if deltaX/deltaY is checked before deltaMode, then
+        // the deltaMode SHOULD be in pixels. chromium-based browsers always use
+        // pixels
+        if (e.deltaMode === 1) {
+            // in lines despite checking deltaX/deltaY first. guess that a line
+            // is 16px tall
+            deltaX *= 16;
+            deltaY *= 16;
+        } else if (e.deltaMode === 2) {
+            // in pages despite checking deltaX/deltaY first. guess that a line
+            // is 128px tall
+            deltaX *= 128;
+            deltaY *= 128;
+        }
+
+        this._wheelDeltaX = deltaX;
+        this._wheelDeltaY = deltaY;
+
+        this.hoverBehaviour(rayHit, false, true);
     }
 
     /**
@@ -448,6 +661,16 @@ export class Cursor extends Component {
         }
 
         return rayHit;
+    }
+
+    /** How much the mouse wheel has moved horizontally since the last frame */
+    get wheelDeltaX() {
+        return this._wheelDeltaX;
+    }
+
+    /** How much the mouse wheel has moved vertically since the last frame */
+    get wheelDeltaY() {
+        return this._wheelDeltaY;
     }
 
     onDeactivate() {
