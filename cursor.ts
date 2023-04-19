@@ -70,6 +70,13 @@ export class Cursor extends Component {
     private _sessionListener!: ListenerCallback<[ XRSession, XRSessionMode ]>;
     private _xrInput: XRInputSource | null = null;
     private _xrLastHandedness: XRHandedness | null = null;
+    /**
+     * Which axes are used for scroll emulation:
+     * 0 - fallback: blend all axes together (0+1 and 2+3)
+     * 1 - touchpad: use axes 0 and 2
+     * 2 - thumbstick: use axes 1 and 3
+     */
+    private _xrScrollEmulationMode: number = 0;
 
     /**
      * Global target is a dummy component that lets you receive
@@ -199,16 +206,15 @@ export class Cursor extends Component {
 
     private updateXRSession(session: XRSession | null) {
         if (session === null) {
-            this._xrInput = null;
+            this.changeXRInputSource(null);
             return;
         }
 
         session.addEventListener('inputsourceschange', this.handleXRInputChange.bind(this));
 
-        this._xrLastHandedness = this.handedness as XRHandedness;
         for (const source of session.inputSources) {
             if (source.handedness === this.handedness) {
-                this._xrInput = source;
+                this.changeXRInputSource(source);
             }
         }
     }
@@ -217,12 +223,12 @@ export class Cursor extends Component {
         let needsRecheck = false;
         if (this._xrInput !== null) {
             if (this._xrLastHandedness !== this.handedness) {
-                this._xrInput = null;
+                this.changeXRInputSource(null);
                 needsRecheck = true;
             } else {
                 for (const removed of e.removed) {
                     if (this._xrInput === removed) {
-                        this._xrInput = null;
+                        this.changeXRInputSource(null);
                         needsRecheck = true;
                         break;
                     }
@@ -235,7 +241,7 @@ export class Cursor extends Component {
         if (this._xrInput === null) {
             for (const added of e.added) {
                 if (added.handedness === this.handedness) {
-                    this._xrInput = added;
+                    this.changeXRInputSource(added);
                     needsRecheck = false;
                     return;
                 }
@@ -248,7 +254,7 @@ export class Cursor extends Component {
 
         for (const source of this.engine.xr.session.inputSources) {
             if (source.handedness === this.handedness) {
-                this._xrInput = source;
+                this.changeXRInputSource(source);
                 return;
             }
         }
@@ -286,6 +292,55 @@ export class Cursor extends Component {
         }
     }
 
+    private changeXRInputSource(source: XRInputSource | null): void {
+        this._xrLastHandedness = this.handedness as XRHandedness;
+        this._xrInput = source;
+
+        if (!source) {
+            return;
+        }
+
+        const gamepad = source.gamepad;
+        if (!gamepad) {
+            return;
+        }
+
+        // prefer left stick or touchpad, but fall back to primary/right stick.
+        // if it's not known which thumbsticks/touchpads are supported, then
+        // allow input from any axes
+        let fallback = true;
+        if (gamepad.mapping === 'xr-standard') {
+            // standard xr controller, try to match a generic profile
+            let touchpadProfile = false, thumbstickProfile = false;
+            for (const profile of source.profiles) {
+                if (TOUCHPAD_PROFILES.indexOf(profile) !== -1) {
+                    // prefer touchpad
+                    this._xrScrollEmulationMode = 1;
+                    fallback = false;
+                    touchpadProfile = true;
+                    break;
+                } else if (THUMBSTICK_PROFILES.indexOf(profile) !== -1) {
+                    // has thumbstick; will be ignored if touchpad profile is
+                    // also found
+                    thumbstickProfile = true;
+                }
+            }
+
+            // has no touchpad profile but has a thumbstick profile. prefer
+            // thumbstick
+            if (thumbstickProfile && !touchpadProfile) {
+                this._xrScrollEmulationMode = 2;
+                fallback = false;
+            }
+        }
+
+        // non-standard or unsupported xr standard controller, fall back to any
+        // axes
+        if (fallback) {
+            this._xrScrollEmulationMode = 0;
+        }
+    }
+
     private emulateScrollAxis(axisIn: number): number {
         if (Math.abs(axisIn) >= this.emulatedXRScrollDeadzone) {
             return axisIn;
@@ -301,43 +356,21 @@ export class Cursor extends Component {
         }
 
         const axes = gamepad.axes;
-        let dx = 0, dy = 0, fallback = true;
+        let dx = 0, dy = 0;
 
-        // prefer left stick or touchpad, but fall back to primary/right stick.
-        // if it's not known which thumbsticks/touchpads are supported, then
-        // allow input from any axes
-        if (gamepad.mapping === 'xr-standard') {
-            // standard xr controller, try to match a generic profile
-            let touchpadProfile = false, thumbstickProfile = false;
-            for (const profile of source.profiles) {
-                if (TOUCHPAD_PROFILES.indexOf(profile) !== -1) {
-                    // prefer touchpad
-                    dx = this.emulateScrollAxis(axes[0]);
-                    dy = this.emulateScrollAxis(axes[1]);
-                    fallback = false;
-                    touchpadProfile = true;
-                    break;
-                } else if (THUMBSTICK_PROFILES.indexOf(profile) !== -1) {
-                    // has thumbstick; will be ignored if touchpad profile is
-                    // also found
-                    thumbstickProfile = true;
-                }
-            }
-
-            // has no touchpad profile but has a thumbstick profile. prefer
-            // thumbstick
-            if (thumbstickProfile && !touchpadProfile) {
-                dx = this.emulateScrollAxis(axes[2]);
-                dy = this.emulateScrollAxis(axes[3]);
-                fallback = false;
-            }
-        }
-
-        // non-standard or unsupported xr standard controller, fall back to any
-        // axes
-        if (fallback) {
+        // scroll depending on emulation mode
+        if (this._xrScrollEmulationMode === 0) {
+            // fallback
             dx = this.emulateScrollAxis(axes[0]) + this.emulateScrollAxis(axes[2]);
             dy = this.emulateScrollAxis(axes[1]) + this.emulateScrollAxis(axes[3]);
+        } else if (this._xrScrollEmulationMode === 1) {
+            // touchpad
+            dx = this.emulateScrollAxis(axes[0]);
+            dy = this.emulateScrollAxis(axes[1]);
+        } else {
+            // thumbstick
+            dx = this.emulateScrollAxis(axes[2]);
+            dy = this.emulateScrollAxis(axes[3]);
         }
 
         // apply speed and delta time multiplier
@@ -356,13 +389,12 @@ export class Cursor extends Component {
 
     update(dt: number) {
         if (this._xrLastHandedness !== this.handedness) {
-            this._xrInput = null;
-            this._xrLastHandedness = this.handedness as XRHandedness;
+            this.changeXRInputSource(null);
 
             if (this.engine.xr) {
                 for (const source of this.engine.xr.session.inputSources) {
                     if (source.handedness === this.handedness) {
-                        this._xrInput = source;
+                        this.changeXRInputSource(source);
                     }
                 }
             }
