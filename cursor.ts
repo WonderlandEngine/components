@@ -276,11 +276,11 @@ export class Cursor extends Component {
         }
     }
 
-    private emulateScrollAxis(axisIn: number, axisCur = 0): number {
+    private emulateScrollAxis(axisIn: number): number {
         if (Math.abs(axisIn) >= this.emulatedXRScrollDeadzone) {
-            return axisCur + axisIn;
+            return axisIn;
         } else {
-            return axisCur;
+            return 0;
         }
     }
 
@@ -316,10 +316,8 @@ export class Cursor extends Component {
         // non-standard or unsupported xr standard controller, fall back to any
         // axes
         if (fallback) {
-            dx = this.emulateScrollAxis(axes[0]);
-            dx = this.emulateScrollAxis(axes[2], dx);
-            dy = this.emulateScrollAxis(axes[1]);
-            dy = this.emulateScrollAxis(axes[3], dy);
+            dx = this.emulateScrollAxis(axes[0]) + this.emulateScrollAxis(axes[2]);
+            dy = this.emulateScrollAxis(axes[1]) + this.emulateScrollAxis(axes[3]);
         }
 
         // apply speed and delta time multiplier
