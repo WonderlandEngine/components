@@ -65,8 +65,8 @@ export class Cursor extends Component {
     private hoveringObject: Object3D | null = null;
     private hoveringObjectTarget: CursorTarget | null = null;
     private cursorRayScale = new Float32Array(3);
-    private _wheelDeltaX = 0;
-    private _wheelDeltaY = 0;
+    private _scrollDeltaX = 0;
+    private _scrollDeltaY = 0;
     private _sessionListener!: ListenerCallback<[ XRSession, XRSessionMode ]>;
     private _xrInput: XRInputSource | null = null;
     private _xrLastHandedness: XRHandedness | null = null;
@@ -108,17 +108,17 @@ export class Cursor extends Component {
     @property.bool(true)
     styleCursor: boolean = true;
 
-    /** Should wheel events be emulated with thumbsticks in VR? */
+    /** Should scroll events be emulated with thumbsticks in VR? */
     @property.bool(false)
-    emulateXRWheel!: boolean;
+    emulateXRScroll!: boolean;
 
-    /** Emulated wheel speed in pixels */
+    /** Emulated scroll speed in pixels */
     @property.float(100.0)
-    emulatedXRWheelSpeed!: number;
+    emulatedXRScrollSpeed!: number;
 
-    /** Emulated wheel deadzone, in a range from 0.0 to 1.0 */
+    /** Emulated scroll deadzone, in a range from 0.0 to 1.0 */
     @property.float(0.1)
-    emulatedXRWheelDeadzone!: number;
+    emulatedXRScrollDeadzone!: number;
 
     init() {
         this._sessionListener = this.updateXRSession.bind(this);
@@ -276,15 +276,15 @@ export class Cursor extends Component {
         }
     }
 
-    private emulateWheelAxis(axisIn: number, axisCur = 0): number {
-        if (Math.abs(axisIn) >= this.emulatedXRWheelDeadzone) {
+    private emulateScrollAxis(axisIn: number, axisCur = 0): number {
+        if (Math.abs(axisIn) >= this.emulatedXRScrollDeadzone) {
             return axisCur + axisIn;
         } else {
             return axisCur;
         }
     }
 
-    private emulateWheel(dt: number, source: XRInputSource): boolean {
+    private emulateScroll(dt: number, source: XRInputSource): boolean {
         const gamepad = source.gamepad;
         if (!gamepad) {
             return false;
@@ -301,13 +301,13 @@ export class Cursor extends Component {
             for (const profile of source.profiles) {
                 if (TOUCHPAD_PROFILES.indexOf(profile) !== -1) {
                     // prefer touchpad
-                    dx = this.emulateWheelAxis(axes[0]);
-                    dy = this.emulateWheelAxis(axes[1]);
+                    dx = this.emulateScrollAxis(axes[0]);
+                    dy = this.emulateScrollAxis(axes[1]);
                     break;
                 } else if (THUMBSTICK_PROFILES.indexOf(profile) !== -1) {
                     // prefer thumbstick
-                    dx = this.emulateWheelAxis(axes[2]);
-                    dy = this.emulateWheelAxis(axes[3]);
+                    dx = this.emulateScrollAxis(axes[2]);
+                    dy = this.emulateScrollAxis(axes[3]);
                     break;
                 }
             }
@@ -316,20 +316,20 @@ export class Cursor extends Component {
         // non-standard or unsupported xr standard controller, fall back to any
         // axes
         if (fallback) {
-            dx = this.emulateWheelAxis(axes[0]);
-            dx = this.emulateWheelAxis(axes[2], dx);
-            dy = this.emulateWheelAxis(axes[1]);
-            dy = this.emulateWheelAxis(axes[3], dy);
+            dx = this.emulateScrollAxis(axes[0]);
+            dx = this.emulateScrollAxis(axes[2], dx);
+            dy = this.emulateScrollAxis(axes[1]);
+            dy = this.emulateScrollAxis(axes[3], dy);
         }
 
         // apply speed and delta time multiplier
-        const effectiveSpeed = this.emulatedXRWheelSpeed * dt;
+        const effectiveSpeed = this.emulatedXRScrollSpeed * dt;
         dx *= effectiveSpeed;
         dy *= effectiveSpeed;
 
         if (dx !== 0 || dy !== 0) {
-            this._wheelDeltaX = dx;
-            this._wheelDeltaY = dy;
+            this._scrollDeltaX = dx;
+            this._scrollDeltaY = dy;
             return true;
         } else {
             return false;
@@ -350,21 +350,21 @@ export class Cursor extends Component {
             }
         }
 
-        let doWheel = false;
-        if (this.emulateXRWheel && this.engine.xr) {
+        let doScroll = false;
+        if (this.emulateXRScroll && this.engine.xr) {
             if (this.input) {
                 if (this.input.xrInputSource) {
-                    doWheel = this.emulateWheel(dt, this.input.xrInputSource);
+                    doScroll = this.emulateScroll(dt, this.input.xrInputSource);
                 }
             } else if (this._xrInput) {
-                doWheel = this.emulateWheel(dt, this._xrInput);
+                doScroll = this.emulateScroll(dt, this._xrInput);
             }
         }
 
-        this.doUpdate(false, doWheel);
+        this.doUpdate(false, doScroll);
     }
 
-    doUpdate(doClick: boolean, doWheel: boolean) {
+    doUpdate(doClick: boolean, doScroll: boolean) {
         /* If in VR, set the cursor ray based on object transform */
         if (this.engine.xrSession) {
             /* Since Google Cardboard tap is registered as arTouchDown without a gamepad, we need to check for gamepad presence */
@@ -402,7 +402,7 @@ export class Cursor extends Component {
             this.cursorPos.fill(0);
         }
 
-        this.hoverBehaviour(rayHit, doClick, doWheel);
+        this.hoverBehaviour(rayHit, doClick, doScroll);
 
         if (this.cursorObject) {
             if (
@@ -418,7 +418,7 @@ export class Cursor extends Component {
         }
     }
 
-    hoverBehaviour(rayHit: RayHit, doClick: boolean, doWheel: boolean) {
+    hoverBehaviour(rayHit: RayHit, doClick: boolean, doScroll: boolean) {
         if (rayHit.hitCount > 0) {
             if (!this.hoveringObject || !this.hoveringObject.equals(rayHit.objects[0])) {
                 /* Unhover previous, if exists */
@@ -473,10 +473,10 @@ export class Cursor extends Component {
                 this.globalTarget!.onClick.notify(this.hoveringObject, this);
             }
 
-            /* Wheel */
-            if (doWheel) {
-                if (cursorTarget) cursorTarget.onWheel.notify(this.hoveringObject, this);
-                this.globalTarget!.onWheel.notify(this.hoveringObject, this);
+            /* Scroll */
+            if (doScroll) {
+                if (cursorTarget) cursorTarget.onScroll.notify(this.hoveringObject, this);
+                this.globalTarget!.onScroll.notify(this.hoveringObject, this);
             }
         } else if (this.hoveringObject && rayHit.hitCount == 0) {
             const cursorTarget = this.hoveringObject.getComponent(CursorTarget);
@@ -617,8 +617,8 @@ export class Cursor extends Component {
             deltaY *= 128;
         }
 
-        this._wheelDeltaX = deltaX;
-        this._wheelDeltaY = deltaY;
+        this._scrollDeltaX = deltaX;
+        this._scrollDeltaY = deltaY;
 
         this.hoverBehaviour(rayHit, false, true);
     }
@@ -663,14 +663,18 @@ export class Cursor extends Component {
         return rayHit;
     }
 
-    /** How much the mouse wheel has moved horizontally since the last frame */
-    get wheelDeltaX() {
-        return this._wheelDeltaX;
+    /**
+     * How much has been scrolled horizontally in pixels since the last frame
+     */
+    get scrollDeltaX() {
+        return this._scrollDeltaX;
     }
 
-    /** How much the mouse wheel has moved vertically since the last frame */
-    get wheelDeltaY() {
-        return this._wheelDeltaY;
+    /**
+     * How much has been scrolled vertically in pixels since the last frame
+     */
+    get scrollDeltaY() {
+        return this._scrollDeltaY;
     }
 
     onDeactivate() {
