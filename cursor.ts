@@ -204,6 +204,13 @@ export class Cursor extends Component {
         }
 
         session.addEventListener('inputsourceschange', this.handleXRInputChange.bind(this));
+
+        this._xrLastHandedness = this.handedness as XRHandedness;
+        for (const source of session.inputSources) {
+            if (source.handedness === this.handedness) {
+                this._xrInput = source;
+            }
+        }
     }
 
     private handleXRInputChange(e: XRInputSourceChangeEvent) {
@@ -225,10 +232,13 @@ export class Cursor extends Component {
 
         this._xrLastHandedness = this.handedness as XRHandedness;
 
-        for (const added of e.added) {
-            if (added.handedness === this.handedness) {
-                this._xrInput = added;
-                return;
+        if (this._xrInput === null) {
+            for (const added of e.added) {
+                if (added.handedness === this.handedness) {
+                    this._xrInput = added;
+                    needsRecheck = false;
+                    return;
+                }
             }
         }
 
@@ -298,18 +308,28 @@ export class Cursor extends Component {
         // allow input from any axes
         if (gamepad.mapping === 'xr-standard') {
             // standard xr controller, try to match a generic profile
+            let touchpadProfile = false, thumbstickProfile = false;
             for (const profile of source.profiles) {
                 if (TOUCHPAD_PROFILES.indexOf(profile) !== -1) {
                     // prefer touchpad
                     dx = this.emulateScrollAxis(axes[0]);
                     dy = this.emulateScrollAxis(axes[1]);
+                    fallback = false;
+                    touchpadProfile = true;
                     break;
                 } else if (THUMBSTICK_PROFILES.indexOf(profile) !== -1) {
-                    // prefer thumbstick
-                    dx = this.emulateScrollAxis(axes[2]);
-                    dy = this.emulateScrollAxis(axes[3]);
-                    break;
+                    // has thumbstick; will be ignored if touchpad profile is
+                    // also found
+                    thumbstickProfile = true;
                 }
+            }
+
+            // has no touchpad profile but has a thumbstick profile. prefer
+            // thumbstick
+            if (thumbstickProfile && !touchpadProfile) {
+                dx = this.emulateScrollAxis(axes[2]);
+                dy = this.emulateScrollAxis(axes[3]);
+                fallback = false;
             }
         }
 
