@@ -1,34 +1,27 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component, Property} from '@wonderlandengine/api';
 import {vec3, quat} from 'gl-matrix';
+const _TempVec = vec3.create();
+const _TempQuat = quat.create();
 
 export class InputProfile extends Component {
     static TypeName = 'input-profile';
     static Properties = {
-        controller: {type: Type.Object},
-        handednessIndex: {
-            type: Type.Enum,
-            values: ['left', 'right'],
-            default: 'left',
-        },
-        path: {
-            type: Type.String,
-            default:
-                'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0.13/dist/profiles/',
-        },
-        customProfileFolder: {
-            type: Type.String,
-        },
+        controller: Property.object(),
+        handednessIndex: Property.enum(['left', 'right'], 0),
+        path: Property.string(
+            'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@1.0.13/dist/profiles/'
+        ),
+        customProfileFolder: Property.string(''),
     };
 
     init() {
-        this.gamepadObjects = {};
-        this.modelLoaded = false;
-        this.tempVec = vec3.create();
+        this._gamepadObjects = {}; 
+        this._modelLoaded = false;
     }
 
     start() {
-        if (this.engine.xrSession) {
-            this.engine.xrSession.addEventListener(
+        if (this.engine.XRSession) {
+            this.engine.XRSession.addEventListener(
                 'inputsourceschange',
                 this.onInputSourcesChange.bind(this)
             );
@@ -45,7 +38,7 @@ export class InputProfile extends Component {
     }
 
     update() {
-        if (this.modelLoaded === true) {
+        if (this.modelLoaded) {
             this.mapGamepadInput();
         }
     }
@@ -54,23 +47,22 @@ export class InputProfile extends Component {
         event.added.forEach((xrInputSource) => {
             const profile = this.customProfileFolder || xrInputSource.profiles[0];
             /** load Profile json */
-            /** Note: if you are providing a custom window.ProfileJSON provide its path in the
+            /** Note: if you are providing a custom ProfileJSON provide its path in the
              * customProfileFolder property of the input-profile component.
              */
             this.url = this.path + profile + '/profile.json';
-            console.log('loading Profile ' + this.url);
             fetch(this.url)
                 .then((res) => res.json())
                 .then((out) => {
-                    window.ProfileJSON = out;
+                    this.ProfileJSON = out;
                     const consoleText = this.modelLoaded
-                        ? 'Profile loaded'
+                        ? 'Profile loaded' + this.url 
                         : 'Reloaded Profile for gamepad mapping ';
                     console.log(consoleText);
                 })
                 .catch(console.error);
 
-            if (this.handedness == xrInputSource.handedness) {
+            if (this.handedness === xrInputSource.handedness) {
                 this.gamepad = xrInputSource.gamepad;
                 /** load controllerModel **/
                 const assetPath = this.path + profile + '/' + this.handedness + '.glb';
@@ -80,7 +72,7 @@ export class InputProfile extends Component {
                         .then((obj) => {
                             obj.parent = this.object;
                             obj.setTranslationLocal([0, 0, 0]);
-                            this.getGamepadObjectsFromProfile(window.ProfileJSON, obj);
+                            this.getGamepadObjectsFromProfile(this.ProfileJSON, obj);
                             this.modelLoaded = true;
                             console.log('model loaded to the scene');
                         })
@@ -92,16 +84,16 @@ export class InputProfile extends Component {
 
     getGamepadObjectsFromProfile(profile, obj) {
         //initialise components
-        const components = profile['layouts'][this.handedness]['components'];
+        const components = profile.layouts[this.handedness].components;
         if (!components) return;
-        for (let i in components) {
+        for (const i in components) {
             if (components.hasOwnProperty(i)) {
-                const visualResponses = components[i]['visualResponses'];
-                for (let j in visualResponses) {
+                const visualResponses = components[i].visualResponses;
+                for (const j in visualResponses) {
                     if (visualResponses.hasOwnProperty(j)) {
-                        this.getObjectByName(obj, visualResponses[j]['valueNodeName']);
-                        this.getObjectByName(obj, visualResponses[j]['minNodeName']);
-                        this.getObjectByName(obj, visualResponses[j]['maxNodeName']);
+                        this.getObjectByName(obj, visualResponses[j].valueNodeName);
+                        this.getObjectByName(obj, visualResponses[j].minNodeName);
+                        this.getObjectByName(obj, visualResponses[j].maxNodeName);
                     }
                 }
             }
@@ -110,39 +102,38 @@ export class InputProfile extends Component {
 
     getObjectByName(obj, name) {
         if (!obj || !name) return;
-        if (obj.name == name) this.gamepadObjects[name] = obj;
+        if (obj.name === name) this._gamepadObjects[name] = obj;
         const children = obj.children;
         for (let i = 0; i < children.length; ++i) this.getObjectByName(children[i], name);
     }
 
     assignTransform(target, min, max, value) {
         vec3.lerp(
-            this.tempVec,
+            _TempVec,
             min.getTranslationWorld([]),
             max.getTranslationWorld([]),
             value
         );
-        target.setTranslationWorld(this.tempVec);
+        target.setTranslationWorld(_TempVec);
 
-        const tempquat = quat.create();
-        quat.lerp(tempquat, min.rotationWorld, max.rotationWorld, value);
-        quat.normalize(tempquat, tempquat);
-        target.rotationWorld = tempquat;
+        quat.lerp(_TempQuat, min.rotationWorld, max.rotationWorld, value);
+        quat.normalize(_TempQuat, _TempQuat);
+        target.rotationWorld = _TempQuat;
     }
 
     mapGamepadInput() {
-        const components = window.ProfileJSON['layouts'][this.handedness]['components'];
+        const components = this.ProfileJSON.layouts[this.handedness].components;
         if (!components) return;
-        for (let i in components) {
+        for (const i in components) {
             if (components.hasOwnProperty(i)) {
                 const component = components[i];
-                const visualResponses = component['visualResponses'];
-                for (let j in visualResponses) {
+                const visualResponses = component.visualResponses;
+                for (const j in visualResponses) {
                     if (visualResponses.hasOwnProperty) {
                         const visualResponse = visualResponses[j];
-                        const target = this.gamepadObjects[visualResponse['valueNodeName']];
-                        const min = this.gamepadObjects[visualResponse['minNodeName']];
-                        const max = this.gamepadObjects[visualResponse['maxNodeName']];
+                        const target = this._gamepadObjects[visualResponse.valueNodeName];
+                        const min = this._gamepadObjects[visualResponse.minNodeName];
+                        const max = this._gamepadObjects[visualResponse.maxNodeName];
 
                         this.assignTransform(
                             target,
@@ -157,37 +148,28 @@ export class InputProfile extends Component {
     }
 
     getGamepadValue(component, visualResponse) {
-        if (visualResponse['valueNodeProperty'] == 'transform') {
-            switch (component['type']) {
+        if (visualResponse.valueNodeProperty === 'transform') {
+            switch (component.type) {
                 case 'button':
-                    return this.gamepad.buttons[component['gamepadIndices']['button']]
-                        .pressed;
+                    return this.gamepad.buttons[component.gamepadIndices.button].pressed;
 
                 case 'thumbstick':
                     // check if component property matches with axis
-                    if (visualResponse['componentProperty'] == 'button') {
-                        return this.gamepad.buttons[component['gamepadIndices']['button']]
+                    if (visualResponse.componentProperty === 'button') {
+                        return this.gamepad.buttons[component.gamepadIndices.button]
                             .pressed;
                     }
-                    if (visualResponse['componentProperty'] == 'xAxis') {
-                        return (
-                            (this.gamepad.axes[component['gamepadIndices']['xAxis']] + 1) /
-                            2
-                        );
+                    if (visualResponse.componentProperty === 'xAxis') {
+                        return (this.gamepad.axes[component.gamepadIndices.xAxis] + 1) / 2;
                     }
-                    if (visualResponse['componentProperty'] == 'yAxis') {
-                        return (
-                            (this.gamepad.axes[component['gamepadIndices']['yAxis']] + 1) /
-                            2
-                        );
+                    if (visualResponse.componentProperty === 'yAxis') {
+                        return (this.gamepad.axes[component.gamepadIndices.yAxis] + 1) / 2;
                     }
                 case 'trigger':
-                    return this.gamepad.buttons[component['gamepadIndices']['button']]
-                        .value;
+                    return this.gamepad.buttons[component.gamepadIndices.button].value;
 
                 case 'squeeze':
-                    return this.gamepad.buttons[component['gamepadIndices']['button']]
-                        .value;
+                    return this.gamepad.buttons[component.gamepadIndices.button].value;
             }
         }
     }
