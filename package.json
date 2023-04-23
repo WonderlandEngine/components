@@ -9,12 +9,12 @@
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "scripts": {
-        "build:ts": "tsc",
-        "build:ts:watch": "tsc --watch",
-        "test": "npm run build:ts && web-test-runner",
+        "build": "tsc",
+        "build:watch": "tsc --watch",
+        "test": "npm run build && web-test-runner",
         "test:single": "npm run test -- --files",
         "test:watch": "npm run test -- --watch",
-        "prepublishOnly": "npm run build:ts",
+        "prepublishOnly": "npm run build",
         "pretty": "prettier --config ./.prettierrc.json --write ./src"
     },
     "repository": {

@@ -28,9 +28,9 @@ Start by installing all dependencies:
 npm install
 ```
 
-To build the TypeScript code, run the `build:ts` or `build:ts:watch` script:
+To build the TypeScript code, run the `build` or `build:watch` script:
 ```
-npm run build:ts:watch
+npm run build:watch
 ```
 
 # Running Tests
