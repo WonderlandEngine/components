@@ -39,3 +39,8 @@ Some components have automated tests, you can run them with the `test` and `test
 ```
 npm run test:watch
 ```
+
+To run tests with a deploy from archive, use the `DEPLOY_FOLDER` environment variable:
+```
+DEPLOY_FOLDER="../../some/deploy" npm run test:watch
+```
