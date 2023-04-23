@@ -18,6 +18,20 @@ interface XRAnchor {
     requestPersistentHandle?: () => Promise<string>;
 }
 
+/**
+ * Sets the location of the object to the location of an XRAnchor
+ *
+ * Create anchors using the `Anchor.create()` static function.
+ *
+ * Example for use with cursor:
+ * ```js
+ * cursorTarget.onClick.add((object, cursor, originalEvent) => {
+ *     /* Only events in XR will have a frame attached *\/
+ *     if(!originalEvent.frame) return;
+ *     Anchor.create(anchorObject, {uuid: id, persist: true}, originalEvent.frame);
+ * });
+ * ```
+ */
 export class Anchor extends Component {
     static TypeName = 'anchor';
     /* Static management of all anchors */
@@ -28,8 +42,10 @@ export class Anchor extends Component {
     /** Unique identifier to load a persistent anchor from, or empty/null if unknown */
     @property.string()
     uuid: string | null = null;
+
     /** The xrAnchor, if created */
     xrAnchor: XRAnchor | null = null;
+
     /** Emits events when the anchor is created either by being restored or newly created */
     onCreate = new Emitter<[Anchor]>();
 
@@ -62,6 +78,15 @@ export class Anchor extends Component {
         Anchor.#anchors.splice(index, 1);
     }
 
+    /**
+     * Create a new anchor
+     *
+     * @param o Object to attach the component to
+     * @param params Parameters for the anchor component
+     * @param frame XRFrame to use for anchor cration, if null, will use the current frame if available
+     * @param hitResult Optional hit-test result to create the anchor with
+     * @returns Promise for the newly created anchor component
+     */
     static create(o: Object3D, params: any, frame?: XRFrame, hitResult?: XRHitTestResult) {
         const a = o.addComponent(Anchor, {...params, active: false});
         if (a === null) return null;
@@ -72,12 +97,12 @@ export class Anchor extends Component {
         return a.onCreate.promise();
     }
 
-    getFrame() {
+    #getFrame() {
         return this.xrFrame || this.engine.xr!.frame;
     }
 
     async #createAnchor() {
-        if (!this.getFrame().createAnchor) {
+        if (!this.#getFrame().createAnchor) {
             throw new Error(
                 "Cannot create anchor - anchors not supported, did you enable the 'anchors' WebXR feature?"
             );
@@ -97,7 +122,7 @@ export class Anchor extends Component {
                 {x: tempVec3[0], y: tempVec3[1], z: tempVec3[2]},
                 {x: rotation[0], y: rotation[1], z: rotation[2], w: rotation[3]}
             );
-            return this.getFrame()?.createAnchor!(
+            return this.#getFrame()?.createAnchor!(
                 anchorPose,
                 this.engine.xr!.currentReferenceSpace
             );
@@ -123,6 +148,7 @@ export class Anchor extends Component {
         }
         this.#onCreate(anchor);
     }
+
     #onRestoreAnchor(anchor: XRAnchor) {
         this.#onCreate(anchor);
     }
@@ -145,7 +171,7 @@ export class Anchor extends Component {
             (this.engine.xr.session as XRSession).restorePersistentAnchor!(this.uuid).then(
                 this.#onRestoreAnchor.bind(this)
             );
-        } else if (this.getFrame()) {
+        } else if (this.#getFrame()) {
             this.#createAnchor().then(this.#onAddAnchor.bind(this));
         } else {
             throw new Error(
