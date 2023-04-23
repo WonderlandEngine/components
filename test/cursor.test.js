@@ -22,6 +22,7 @@ describe('Cursor', function () {
             'handedness',
             'rayCastMode',
             'styleCursor',
+            'useWebXRHitTest',
         ]);
     });
 
