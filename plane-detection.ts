@@ -16,10 +16,12 @@ import {property} from '@wonderlandengine/api/decorators.js';
 
 import {setXRRigidTransformLocal} from './utils/webxr.js';
 
+// FIXME: earcut overrides default export, breaking our tests
 import earcut from 'earcut';
 
 const tempVec3 = new Float32Array(3);
 
+/** Compute minimum and maxium extents of given list of contour points */
 function extentsFromContour(out: NumberArray, points: ArrayLike<DOMPoint>) {
     if (points.length == 0) return out;
 
@@ -36,6 +38,7 @@ function extentsFromContour(out: NumberArray, points: ArrayLike<DOMPoint>) {
     out[2] = absMaxZ;
 }
 
+/** Check whether x lies between a and b */
 function within(x: number, a: number, b: number) {
     if (a > b) return x < a && x > b;
     return x > a && x < b;
@@ -142,6 +145,9 @@ function planeMeshFromContour(
     return mesh;
 }
 
+/**
+ * Generate meshes and collisions for XRPlanes using [WebXR Device API - Plane Detection](https://immersive-web.github.io/real-world-geometry/plane-detection.html).
+ */
 export class PlaneDetection extends Component {
     static TypeName = 'plane-detection';
 
@@ -158,7 +164,10 @@ export class PlaneDetection extends Component {
     @property.int()
     collisionMask = -1;
 
+    /** Map of all planes and their last updated timestamps */
     planes: Map<XRPlane, DOMHighResTimeStamp> = new Map();
+
+    /** Objects generated for each XRPlane */
     planeObjects: Map<XRPlane, Object3D> = new Map();
 
     /** Called when a plane starts tracking */
