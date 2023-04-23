@@ -48,24 +48,35 @@ class CursorTargetEmitters<T> {
 export class Cursor extends Component {
     static TypeName = 'cursor';
 
-    private collisionMask = 0;
-    private maxDistance = 100;
-    private onDeactivateCallbacks: (() => void)[] = [];
-    private input: InputComponent | null = null;
-    private origin = new Float32Array(3);
-    private cursorObjScale = new Float32Array(3);
-    private direction = new Float32Array(3);
-    private projectionMatrix = new Float32Array(16);
-    private viewComponent: ViewComponent | null = null;
-    private visible = true;
-    private isDown = false;
-    private lastIsDown = false;
-    private arTouchDown = false;
+    private _collisionMask = 0;
+    private _onDeactivateCallbacks: (() => void)[] = [];
+    private _input: InputComponent | null = null;
+    private _origin = new Float32Array(3);
+    private _cursorObjScale = new Float32Array(3);
+    private _direction = new Float32Array(3);
+    private _projectionMatrix = new Float32Array(16);
+    private _viewComponent: ViewComponent | null = null;
+    private _isDown = false;
+    private _lastIsDown = false;
+    private _arTouchDown = false;
 
-    private lastCursorPosOnTarget = new Float32Array(3);
-    private hoveringObject: Object3D | null = null;
-    private hoveringObjectTarget: CursorTarget | null = null;
-    private cursorRayScale = new Float32Array(3);
+    private _lastCursorPosOnTarget = new Float32Array(3);
+    private _cursorRayScale = new Float32Array(3);
+
+    /**
+     * Whether the cursor (and cursorObject) is visible, i.e. pointing at an object
+     * that matches the collision group
+     */
+    visible = true;
+
+    /** Maximum distance for the cursor's ray cast */
+    maxDistance = 100;
+
+    /** Currently hovered object */
+    hoveringObject: Object3D | null = null;
+
+    /** CursorTarget component of the currently hovered object */
+    hoveringObjectTarget: CursorTarget | null = null;
 
     /**
      * Global target lets you receive global cursor events on any object.
@@ -104,7 +115,7 @@ export class Cursor extends Component {
     styleCursor: boolean = true;
 
     start() {
-        this.collisionMask = 1 << this.collisionGroup;
+        this._collisionMask = 1 << this.collisionGroup;
 
         if (this.handedness == 0) {
             const inputComp = this.object.getComponent('input');
@@ -117,13 +128,13 @@ export class Cursor extends Component {
                 );
             } else {
                 this.handedness = inputComp.handedness || 'none';
-                this.input = inputComp;
+                this._input = inputComp;
             }
         } else {
             this.handedness = ['left', 'right', 'none'][(this.handedness as number) - 1];
         }
 
-        this.viewComponent = this.object.getComponent(ViewComponent);
+        this._viewComponent = this.object.getComponent(ViewComponent);
     }
 
     onActivate() {
@@ -131,7 +142,7 @@ export class Cursor extends Component {
 
         /* If this object also has a view component, we will enable inverse-projected mouse clicks,
          * otherwise just use the objects transformation */
-        if (this.viewComponent != null) {
+        if (this._viewComponent != null) {
             const canvas = this.engine.canvas!;
 
             const onClick = this.onClick.bind(this);
@@ -144,12 +155,12 @@ export class Cursor extends Component {
             canvas.addEventListener('pointerdown', onPointerDown);
             canvas.addEventListener('pointerup', onPointerUp);
 
-            mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
+            mat4.invert(this._projectionMatrix, this._viewComponent.projectionMatrix);
             const onViewportResize = this.onViewportResize.bind(this);
             // FIXME: We might need to use ResizeObserver here?
             window.addEventListener('resize', onViewportResize);
 
-            this.onDeactivateCallbacks.push(() => {
+            this._onDeactivateCallbacks.push(() => {
                 canvas.removeEventListener('click', onClick);
                 canvas.removeEventListener('pointermove', onPointerMove);
                 canvas.removeEventListener('pointerdown', onPointerDown);
@@ -160,7 +171,7 @@ export class Cursor extends Component {
 
         const onXRSessionStart = this.setupVREvents.bind(this);
         this.engine.onXRSessionStart.add(onXRSessionStart);
-        this.onDeactivateCallbacks.push(() => {
+        this._onDeactivateCallbacks.push(() => {
             this.engine.onXRSessionStart.remove(onXRSessionStart);
         });
         if (this.engine.xr) {
@@ -168,32 +179,32 @@ export class Cursor extends Component {
         }
 
         /* Set initial origin and direction */
-        this.object.getTranslationWorld(this.origin);
-        this.object.getForward(this.direction);
+        this.object.getTranslationWorld(this._origin);
+        this.object.getForward(this._direction);
 
         if (this.cursorRayObject) {
-            this.cursorRayScale.set(this.cursorRayObject.scalingLocal);
+            this._cursorRayScale.set(this.cursorRayObject.scalingLocal);
 
             /* Set ray to a good default distance of the cursor of 1m */
-            this._setCursorRayTransform(vec3.add(tempVec, this.origin, this.direction));
+            this._setCursorRayTransform(vec3.add(tempVec, this._origin, this._direction));
         }
     }
 
     onViewportResize() {
-        if (!this.viewComponent) return;
+        if (!this._viewComponent) return;
         /* Projection matrix will change if the viewport is resized, which will affect the
          * projection matrix because of the aspect ratio. */
-        mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
+        mat4.invert(this._projectionMatrix, this._viewComponent.projectionMatrix);
     }
 
     _setCursorRayTransform(hitPosition: vec3) {
         if (!this.cursorRayObject) return;
-        const dist = vec3.dist(this.origin, hitPosition);
+        const dist = vec3.dist(this._origin, hitPosition);
         this.cursorRayObject.setTranslationLocal([0.0, 0.0, -dist / 2]);
         if (this.cursorRayScalingAxis != 4) {
             this.cursorRayObject.resetScaling();
-            this.cursorRayScale[this.cursorRayScalingAxis] = dist / 2;
-            this.cursorRayObject.scale(this.cursorRayScale);
+            this._cursorRayScale[this.cursorRayScalingAxis] = dist / 2;
+            this.cursorRayObject.scale(this._cursorRayScale);
         }
     }
 
@@ -204,9 +215,9 @@ export class Cursor extends Component {
 
         if (visible) {
             this.cursorObject.resetScaling();
-            this.cursorObject.scale(this.cursorObjScale);
+            this.cursorObject.scale(this._cursorObjScale);
         } else {
-            this.cursorObjScale.set(this.cursorObject.scalingLocal);
+            this._cursorObjScale.set(this.cursorObject.scalingLocal);
             this.cursorObject.scale([0, 0, 0]);
         }
     }
@@ -216,20 +227,20 @@ export class Cursor extends Component {
         /* Since Google Cardboard tap is registered as arTouchDown without a gamepad, we need to check for gamepad presence */
         if (
             this.engine.xr &&
-            this.arTouchDown &&
-            this.input &&
+            this._arTouchDown &&
+            this._input &&
             this.engine.xr.session.inputSources[0].handedness === 'none' &&
             this.engine.xr.session.inputSources[0].gamepad
         ) {
             const p = this.engine.xr.session.inputSources[0].gamepad.axes;
             /* Screenspace Y is inverted */
-            this.direction[0] = p[0];
-            this.direction[1] = -p[1];
-            this.direction[2] = -1.0;
+            this._direction[0] = p[0];
+            this._direction[1] = -p[1];
+            this._direction[2] = -1.0;
             this.updateDirection();
         } else {
-            this.object.getTranslationWorld(this.origin);
-            this.object.getForwardWorld(this.direction);
+            this.object.getTranslationWorld(this._origin);
+            this.object.getForwardWorld(this._direction);
         }
 
         this.rayCast(false);
@@ -287,8 +298,8 @@ export class Cursor extends Component {
 
         if (this.hoveringObject) {
             /* onDown/onUp */
-            if (this.isDown !== this.lastIsDown) {
-                this.notify(this.isDown ? 'onDown' : 'onUp');
+            if (this._isDown !== this._lastIsDown) {
+                this.notify(this._isDown ? 'onDown' : 'onUp');
             }
 
             /* onClick */
@@ -304,16 +315,16 @@ export class Cursor extends Component {
             }
 
             if (
-                this.lastCursorPosOnTarget[0] != tempVec[0] ||
-                this.lastCursorPosOnTarget[1] != tempVec[1] ||
-                this.lastCursorPosOnTarget[2] != tempVec[2]
+                this._lastCursorPosOnTarget[0] != tempVec[0] ||
+                this._lastCursorPosOnTarget[1] != tempVec[1] ||
+                this._lastCursorPosOnTarget[2] != tempVec[2]
             ) {
                 this.notify('onMove');
-                this.lastCursorPosOnTarget.set(tempVec);
+                this._lastCursorPosOnTarget.set(tempVec);
             }
         }
 
-        this.lastIsDown = this.isDown;
+        this._lastIsDown = this._isDown;
     }
 
     /**
@@ -332,7 +343,7 @@ export class Cursor extends Component {
         const onSelectEnd = this.onSelectEnd.bind(this);
         s.addEventListener('selectend', onSelectEnd);
 
-        this.onDeactivateCallbacks.push(() => {
+        this._onDeactivateCallbacks.push(() => {
             if (!this.engine.xrSession) return;
             s.removeEventListener('select', onSelect);
             s.removeEventListener('selectstart', onSelectStart);
@@ -349,8 +360,8 @@ export class Cursor extends Component {
         if (this.cursorRayObject) this.cursorRayObject.scale([0, 0, 0]);
 
         /* Ensure all event listeners are removed */
-        for (const f of this.onDeactivateCallbacks) f();
-        this.onDeactivateCallbacks.length = 0;
+        for (const f of this._onDeactivateCallbacks) f();
+        this._onDeactivateCallbacks.length = 0;
     }
     /** 'select' event listener */
     onSelect(e: XRInputSourceEvent) {
@@ -360,14 +371,14 @@ export class Cursor extends Component {
 
     /** 'selectstart' event listener */
     onSelectStart(e: XRInputSourceEvent) {
-        this.arTouchDown = true;
-        if (e.inputSource.handedness == this.handedness) this.isDown = true;
+        this._arTouchDown = true;
+        if (e.inputSource.handedness == this.handedness) this._isDown = true;
     }
 
     /** 'selectend' event listener */
     onSelectEnd(e: XRInputSourceEvent) {
-        this.arTouchDown = false;
-        if (e.inputSource.handedness == this.handedness) this.isDown = false;
+        this._arTouchDown = false;
+        if (e.inputSource.handedness == this.handedness) this._isDown = false;
     }
 
     /** 'pointermove' event listener */
@@ -390,7 +401,7 @@ export class Cursor extends Component {
         /* Don't care about secondary pointers or non-left clicks */
         if (!e.isPrimary || e.button !== 0) return;
         this.updateMousePos(e);
-        this.isDown = true;
+        this._isDown = true;
 
         this.rayCast();
     }
@@ -400,7 +411,7 @@ export class Cursor extends Component {
         /* Don't care about secondary pointers or non-left clicks */
         if (!e.isPrimary || e.button !== 0) return;
         this.updateMousePos(e);
-        this.isDown = false;
+        this._isDown = false;
 
         this.rayCast();
     }
@@ -414,29 +425,33 @@ export class Cursor extends Component {
         /* Get direction in normalized device coordinate space from mouse position */
         const left = e.clientX / bounds.width;
         const top = e.clientY / bounds.height;
-        this.direction[0] = left * 2 - 1;
-        this.direction[1] = -top * 2 + 1;
-        this.direction[2] = -1.0;
+        this._direction[0] = left * 2 - 1;
+        this._direction[1] = -top * 2 + 1;
+        this._direction[2] = -1.0;
         this.updateDirection();
     }
 
     private updateDirection() {
-        this.object.getTranslationWorld(this.origin);
+        this.object.getTranslationWorld(this._origin);
 
         /* Reverse-project the direction into view space */
-        vec3.transformMat4(this.direction, this.direction, this.projectionMatrix);
-        vec3.normalize(this.direction, this.direction);
-        vec3.transformQuat(this.direction, this.direction, this.object.transformWorld);
+        vec3.transformMat4(this._direction, this._direction, this._projectionMatrix);
+        vec3.normalize(this._direction, this._direction);
+        vec3.transformQuat(this._direction, this._direction, this.object.transformWorld);
     }
 
     private rayCast(doClick = false) {
         const rayHit =
             this.rayCastMode == 0
-                ? this.engine.scene.rayCast(this.origin, this.direction, this.collisionMask)
+                ? this.engine.scene.rayCast(
+                      this._origin,
+                      this._direction,
+                      this._collisionMask
+                  )
                 : this.engine.physics!.rayCast(
-                      this.origin,
-                      this.direction,
-                      this.collisionMask,
+                      this._origin,
+                      this._direction,
+                      this._collisionMask,
                       this.maxDistance
                   );
 
