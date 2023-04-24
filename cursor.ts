@@ -74,8 +74,9 @@ export class Cursor extends Component {
 
     private _lastCursorPosOnTarget = new Float32Array(3);
     private _cursorRayScale = new Float32Array(3);
-    private hitTestLocation: HitTestLocation | null = null;
-    private hitTestObject: Object3D | null = null;
+
+    private _hitTestLocation: HitTestLocation | null = null;
+    private _hitTestObject: Object3D | null = null;
 
     /**
      * Whether the cursor (and cursorObject) is visible, i.e. pointing at an object
@@ -176,9 +177,9 @@ export class Cursor extends Component {
         this._viewComponent = this.object.getComponent(ViewComponent);
 
         if (this.useWebXRHitTest) {
-            this.hitTestObject = this.engine.scene.addObject(this.object);
-            this.hitTestLocation =
-                this.hitTestObject.addComponent(HitTestLocation, {
+            this._hitTestObject = this.engine.scene.addObject(this.object);
+            this._hitTestLocation =
+                this._hitTestObject.addComponent(HitTestLocation, {
                     scaleObject: false,
                 }) ?? null;
         }
@@ -451,7 +452,7 @@ export class Cursor extends Component {
     }
 
     onDestroy() {
-        this.hitTestObject?.destroy();
+        this._hitTestObject?.destroy();
     }
 
     /** 'select' event listener */
@@ -557,8 +558,8 @@ export class Cursor extends Component {
                   );
 
         let hitResultDistance = Infinity;
-        if (this.hitTestLocation?.visible) {
-            this.hitTestObject!.getTranslationWorld(this.cursorPos);
+        if (this._hitTestLocation?.visible) {
+            this._hitTestObject!.getTranslationWorld(this.cursorPos);
             hitResultDistance = vec3.distance(
                 this.object.getTranslationWorld(tempVec),
                 this.cursorPos
@@ -590,8 +591,8 @@ export class Cursor extends Component {
 
         this.hoverBehaviour(
             rayHit,
-            frame && this.hitTestLocation && hoveringReality
-                ? this.hitTestLocation?.getHitTestResults(frame)[0]
+            frame && this._hitTestLocation && hoveringReality
+                ? this._hitTestLocation?.getHitTestResults(frame)[0]
                 : null,
             doClick,
             originalEvent
