@@ -583,7 +583,7 @@ export class Cursor extends Component {
 
         if (hoveringReality && !this.hoveringReality) {
             this.hitTestTarget.onHover.notify(null, this);
-        } else {
+        } else if (!hoveringReality && this.hoveringReality) {
             this.hitTestTarget.onUnhover.notify(null, this);
         }
         this.hoveringReality = hoveringReality;
