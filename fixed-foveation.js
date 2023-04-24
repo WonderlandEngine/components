@@ -15,11 +15,15 @@ export class FixedFoveation extends Component {
     };
 
     start() {
-        if (this.engine.xr) {
-            this.setFixedFoveation();
-        } else {
-            this.engine.onXRSessionStart.push(this.setFixedFoveation.bind(this));
-        }
+        this.onSessionStartCallback = this.setFixedFoveation().bind(this);
+    }
+
+    onActivate() {
+        this.engine.onXRSessionStart.add(this.onSessionStartCallback);
+    }
+
+    onDeactivate() {
+        this.engine.onXRSessionStart.remove(this.onSessionStartCallback);
     }
 
     setFixedFoveation() {

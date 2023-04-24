@@ -33,13 +33,12 @@ export class HitTestLocation extends Component {
     /** Emits an event when the hit test switches from invisible to visible */
     onHitFound = new Emitter<[HitTestLocation]>();
 
-    start() {
-        this.engine.onXRSessionStart.add(this.xrSessionStart.bind(this));
-        this.engine.onXRSessionEnd.add(this.xrSessionEnd.bind(this));
+    onSessionStartCallback: ((s: XRSession) => void) | null = null;
+    onSessionEndCallback: (() => void) | null = null;
 
-        if (this.engine.xr) {
-            this.xrSessionStart(this.engine.xr.session);
-        }
+    start() {
+        this.onSessionStartCallback = this.onXRSessionStart.bind(this);
+        this.onSessionEndCallback = this.onXRSessionEnd.bind(this);
 
         if (this.scaleObject) {
             this.tempScaling.set(this.object.scalingLocal);
@@ -54,6 +53,16 @@ export class HitTestLocation extends Component {
                 this.object.setDirty();
             });
         }
+    }
+
+    onActivate() {
+        this.engine.onXRSessionStart.add(this.onSessionStartCallback!);
+        this.engine.onXRSessionEnd.add(this.onSessionEndCallback!);
+    }
+
+    onDeactivate() {
+        this.engine.onXRSessionStart.remove(this.onSessionStartCallback!);
+        this.engine.onXRSessionEnd.remove(this.onSessionEndCallback!);
     }
 
     update() {
@@ -87,7 +96,7 @@ export class HitTestLocation extends Component {
         return frame.getHitTestResults(this.xrHitTestSource);
     }
 
-    xrSessionStart(session: XRSession) {
+    onXRSessionStart(session: XRSession) {
         if (session.requestHitTestSource === undefined) {
             console.error(
                 'hit-test-location: hit test feature not available. Deactivating component.'
@@ -108,7 +117,7 @@ export class HitTestLocation extends Component {
             .catch(console.error);
     }
 
-    xrSessionEnd() {
+    onXRSessionEnd() {
         if (!this.xrHitTestSource) return;
         this.xrHitTestSource.cancel();
         this.xrHitTestSource = null;

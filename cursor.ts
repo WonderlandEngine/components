@@ -78,6 +78,8 @@ export class Cursor extends Component {
     private _hitTestLocation: HitTestLocation | null = null;
     private _hitTestObject: Object3D | null = null;
 
+    private _onSessionStartCallback: ((s: XRSession) => void) | null = null;
+
     /**
      * Whether the cursor (and cursorObject) is visible, i.e. pointing at an object
      * that matches the collision group
@@ -183,9 +185,12 @@ export class Cursor extends Component {
                     scaleObject: false,
                 }) ?? null;
         }
+
+        this._onSessionStartCallback = this.setupVREvents.bind(this);
     }
 
     onActivate() {
+        this.engine.onXRSessionStart.add(this._onSessionStartCallback!);
         this._setCursorVisibility(true);
 
         /* If this object also has a view component, we will enable inverse-projected mouse clicks,
@@ -215,15 +220,6 @@ export class Cursor extends Component {
                 canvas.removeEventListener('pointerup', onPointerUp);
                 window.removeEventListener('resize', onViewportResize);
             });
-        }
-
-        const onXRSessionStart = this.setupVREvents.bind(this);
-        this.engine.onXRSessionStart.add(onXRSessionStart);
-        this._onDeactivateCallbacks.push(() => {
-            this.engine.onXRSessionStart.remove(onXRSessionStart);
-        });
-        if (this.engine.xr) {
-            this.setupVREvents(this.engine.xr.session);
         }
 
         /* Set initial origin and direction */
@@ -441,6 +437,8 @@ export class Cursor extends Component {
     }
 
     onDeactivate() {
+        this.engine.onXRSessionStart.remove(this._onSessionStartCallback!);
+
         this._setCursorVisibility(false);
         if (this.hoveringObject) this.notify('onUnhover', null);
         if (this.cursorRayObject) this.cursorRayObject.scale([0, 0, 0]);
