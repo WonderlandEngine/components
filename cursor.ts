@@ -416,8 +416,7 @@ export class Cursor extends Component {
      * Setup event listeners on session object
      * @param s WebXR session
      *
-     * Sets up 'select' and 'end' events and caches the session to avoid
-     * Module object access.
+     * Sets up 'select' and 'end' events.
      */
     setupVREvents(s: XRSession) {
         if (!s) console.error('setupVREvents called without a valid session');
@@ -558,16 +557,18 @@ export class Cursor extends Component {
                   );
 
         let hitResultDistance = Infinity;
+        let hitTestResult = null;
         if (this._hitTestLocation?.visible) {
             this._hitTestObject!.getTranslationWorld(this.cursorPos);
             hitResultDistance = vec3.distance(
                 this.object.getTranslationWorld(tempVec),
                 this.cursorPos
             );
+
+            hitTestResult = this._hitTestLocation?.getHitTestResults(frame)[0];
         }
 
         let hoveringReality = false;
-
         if (rayHit.hitCount > 0) {
             const d = rayHit.distances[0];
             if (hitResultDistance >= d) {
@@ -583,20 +584,13 @@ export class Cursor extends Component {
         }
 
         if (hoveringReality && !this.hoveringReality) {
-            this.hitTestTarget.onHover.notify(null, this);
+            this.hitTestTarget.onHover.notify(hitTestResult, this);
         } else if (!hoveringReality && this.hoveringReality) {
-            this.hitTestTarget.onUnhover.notify(null, this);
+            this.hitTestTarget.onUnhover.notify(hitTestResult, this);
         }
         this.hoveringReality = hoveringReality;
 
-        this.hoverBehaviour(
-            rayHit,
-            frame && this._hitTestLocation && hoveringReality
-                ? this._hitTestLocation?.getHitTestResults(frame)[0]
-                : null,
-            doClick,
-            originalEvent
-        );
+        this.hoverBehaviour(rayHit, hitTestResult, doClick, originalEvent);
 
         return rayHit;
     }
