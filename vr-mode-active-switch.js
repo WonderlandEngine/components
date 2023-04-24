@@ -26,8 +26,18 @@ export class VrModeActiveSwitch extends Component {
         /* Initial activation/deactivation */
         this.onXRSessionEnd();
 
-        this.engine.onXRSessionStart.push(this.onXRSessionStart.bind(this));
-        this.engine.onXRSessionEnd.push(this.onXRSessionEnd.bind(this));
+        this.onSessionStartCallback = this.onXRSessionStart.bind(this);
+        this.onSessionEndCallback = this.onXRSessionEnd.bind(this);
+    }
+
+    onActivate() {
+        this.engine.onXRSessionStart.add(this.onSessionStartCallback);
+        this.engine.onXRSessionEnd.add(this.onSessionEndCallback);
+    }
+
+    onDeactivate() {
+        this.engine.onXRSessionStart.remove(this.onSessionStartCallback);
+        this.engine.onXRSessionEnd.remove(this.onSessionEndCallback);
     }
 
     getComponents(obj) {
@@ -50,12 +60,10 @@ export class VrModeActiveSwitch extends Component {
     }
 
     onXRSessionStart() {
-        if (!this.active) return;
         this.setComponentsActive(this.activateComponents == 0);
     }
 
     onXRSessionEnd() {
-        if (!this.active) return;
         this.setComponentsActive(this.activateComponents != 0);
     }
 }

@@ -23,11 +23,15 @@ export class TargetFramerate extends Component {
     };
 
     start() {
-        if (this.engine.xrSession) {
-            this.setTargetFramerate(this.engine.xrSession);
-        } else {
-            this.engine.onXRSessionStart.push(this.setTargetFramerate.bind(this));
-        }
+        this.onSessionStartCallback = this.setTargetFramerate().bind(this);
+    }
+
+    onActivate() {
+        this.engine.onXRSessionStart.add(this.onSessionStartCallback);
+    }
+
+    onDeactivate() {
+        this.engine.onXRSessionStart.remove(this.onSessionStartCallback);
     }
 
     setTargetFramerate(s) {
