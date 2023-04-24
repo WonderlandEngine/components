@@ -106,12 +106,17 @@ export class HandTracking extends Component {
         }
 
         /* Spawn joints */
-        for (let j = 0; j <= ORDERED_JOINTS.length; ++j) {
-            let joint = this.engine.scene.addObject(this.object.parent);
-            let mesh = joint.addComponent('mesh');
-
-            mesh.mesh = this.jointMesh;
-            mesh.material = this.jointMaterial;
+        const jointObjects = this.engine.scene.addObjects(
+            ORDERED_JOINTS.length,
+            this.object.parent,
+            ORDERED_JOINTS.length
+        );
+        for (let j = 0; j < ORDERED_JOINTS.length; ++j) {
+            let joint = jointObjects[j];
+            joint.addComponent(MeshComponent, {
+                mesh: this.jointMesh,
+                material: this.jointMaterial,
+            });
 
             this.joints[ORDERED_JOINTS[j]] = joint;
         }
