@@ -74,13 +74,13 @@ export class HandTracking extends Component {
         this.handedness = ['left', 'right'][this.handedness];
     }
 
-    start() {
-        this.joints = [];
-        this.session = null;
-        /* Whether last update had a hand pose */
-        this.hasPose = false;
-        this._childrenActive = true;
+    joints = {};
+    session = null;
+    /* Whether last update had a hand pose */
+    hasPose = false;
+    _childrenActive = true;
 
+    start() {
         if (!('XRHand' in window)) {
             console.warn('WebXR Hand Tracking not supported by this browser.');
             this.active = false;
