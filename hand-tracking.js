@@ -1,4 +1,4 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component, MeshComponent, Type} from '@wonderlandengine/api';
 import {vec3, quat, quat2} from 'gl-matrix';
 import {setXRRigidTransformLocal} from './utils/webxr.js';
 
@@ -29,6 +29,9 @@ const ORDERED_JOINTS = [
     'pinky-finger-phalanx-distal',
     'pinky-finger-tip',
 ];
+
+const invTranslation = new Float32Array(3);
+const invRotation = new Float32Array(4);
 
 /**
  * Easy hand tracking through the WebXR Device API
@@ -131,7 +134,7 @@ export class HandTracking extends Component {
 
         this.hasPose = false;
         if (this.session && this.session.inputSources) {
-            for (let i = 0; i <= this.session.inputSources.length; ++i) {
+            for (let i = 0; i < this.session.inputSources.length; ++i) {
                 const inputSource = this.session.inputSources[i];
                 if (
                     !inputSource ||
@@ -141,9 +144,10 @@ export class HandTracking extends Component {
                     continue;
                 this.hasPose = true;
 
-                if (inputSource.hand.get('wrist') !== null) {
+                const wristSpace = inputSource.hand.get('wrist');
+                if (wristSpace !== null) {
                     const p = this.engine.xr.frame.getJointPose(
-                        inputSource.hand.get('wrist'),
+                        wristSpace,
                         this.engine.xr.currentReferenceSpace
                     );
                     if (p) {
@@ -151,20 +155,20 @@ export class HandTracking extends Component {
                     }
                 }
 
-                let invTranslation = new Float32Array(3);
-                let invRotation = new Float32Array(4);
-                quat.invert(invRotation, this.object.transformLocal);
+                this.object.getRotationLocal(invRotation);
+                quat.conjugate(invRotation, invRotation);
                 this.object.getTranslationLocal(invTranslation);
 
                 for (let j = 0; j < ORDERED_JOINTS.length; ++j) {
                     const jointName = ORDERED_JOINTS[j];
                     const joint = this.joints[jointName];
-                    if (joint == null) continue;
+                    if (joint === null) continue;
 
                     let jointPose = null;
-                    if (inputSource.hand.get(jointName) !== null) {
+                    const jointSpace = inputSource.hand.get(jointName);
+                    if (jointSpace !== null) {
                         jointPose = this.engine.xr.frame.getJointPose(
-                            inputSource.hand.get(jointName),
+                            jointSpace,
                             this.engine.xr.currentReferenceSpace
                         );
                     }
@@ -185,15 +189,12 @@ export class HandTracking extends Component {
                                 jointPose.transform.orientation.w,
                             ]);
                         } else {
-                            setXRRigidTransformLocal(this.object, p.transform);
+                            setXRRigidTransformLocal(joint, jointPose.transform);
 
                             /* Last joint radius of each finger is null */
                             const r = jointPose.radius || 0.007;
-                            joint.scale([r, r, r]);
+                            joint.setScalingLocal([r, r, r]);
                         }
-                    } else {
-                        /* Hack to hide the object */
-                        if (!this.handSkin) joint.scale([0, 0, 0]);
                     }
                 }
             }
