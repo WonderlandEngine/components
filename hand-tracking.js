@@ -137,7 +137,7 @@ export class HandTracking extends Component {
                 this.hasPose = true;
 
                 if (inputSource.hand.get('wrist') !== null) {
-                    const p = Module['webxr_frame'].getJointPose(
+                    const p = this.engine.xr.frame.getJointPose(
                         inputSource.hand.get('wrist'),
                         this.engine.xr.currentReferenceSpace
                     );
