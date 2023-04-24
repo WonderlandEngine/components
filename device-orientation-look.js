@@ -69,7 +69,7 @@ export class DeviceOrientationLook extends Component {
 
     update() {
         /* Don't use device orientation in VR */
-        if (Module['webxr_session'] != null) return;
+        if (this.engine.xr) return;
 
         this.object.getTranslationLocal(this._origin);
 
