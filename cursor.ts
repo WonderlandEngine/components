@@ -6,7 +6,6 @@ import {
     Emitter,
     WonderlandEngine,
     RayHit,
-    ListenerCallback,
 } from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {vec3, mat4} from 'gl-matrix';
@@ -844,7 +843,7 @@ export class Cursor extends Component {
         }
         this.hoveringReality = hoveringReality;
 
-        this.hoverBehaviour(rayHit, hitTestResult, doClick, originalEvent);
+        this.hoverBehaviour(rayHit, hitTestResult, doClick, doScroll, originalEvent);
 
         return rayHit;
     }
