@@ -156,6 +156,13 @@ export class Cursor extends Component {
     @property.bool(false)
     useWebXRHitTest: boolean = false;
 
+    _onViewportResize = () => {
+        if (!this._viewComponent) return;
+        /* Projection matrix will change if the viewport is resized, which will affect the
+         * projection matrix because of the aspect ratio. */
+        mat4.invert(this._projectionMatrix, this._viewComponent.projectionMatrix);
+    };
+
     start() {
         this._collisionMask = 1 << this.collisionGroup;
 
@@ -191,6 +198,8 @@ export class Cursor extends Component {
 
     onActivate() {
         this.engine.onXRSessionStart.add(this._onSessionStartCallback!);
+        this.engine.onResize.add(this._onViewportResize);
+
         this._setCursorVisibility(true);
 
         /* If this object also has a view component, we will enable inverse-projected mouse clicks,
@@ -208,19 +217,15 @@ export class Cursor extends Component {
             canvas.addEventListener('pointerdown', onPointerDown);
             canvas.addEventListener('pointerup', onPointerUp);
 
-            mat4.invert(this._projectionMatrix, this._viewComponent.projectionMatrix);
-            const onViewportResize = this.onViewportResize.bind(this);
-            // FIXME: We might need to use ResizeObserver here?
-            window.addEventListener('resize', onViewportResize);
-
             this._onDeactivateCallbacks.push(() => {
                 canvas.removeEventListener('click', onClick);
                 canvas.removeEventListener('pointermove', onPointerMove);
                 canvas.removeEventListener('pointerdown', onPointerDown);
                 canvas.removeEventListener('pointerup', onPointerUp);
-                window.removeEventListener('resize', onViewportResize);
             });
         }
+
+        this._onViewportResize();
 
         /* Set initial origin and direction */
         this.object.getTranslationWorld(this._origin);
@@ -232,13 +237,6 @@ export class Cursor extends Component {
             /* Set ray to a good default distance of the cursor of 1m */
             this._setCursorRayTransform(vec3.add(tempVec, this._origin, this._direction));
         }
-    }
-
-    onViewportResize() {
-        if (!this._viewComponent) return;
-        /* Projection matrix will change if the viewport is resized, which will affect the
-         * projection matrix because of the aspect ratio. */
-        mat4.invert(this._projectionMatrix, this._viewComponent.projectionMatrix);
     }
 
     _setCursorRayTransform(hitPosition: vec3) {
@@ -433,11 +431,12 @@ export class Cursor extends Component {
         });
 
         /* After AR session was entered, the projection matrix changed */
-        this.onViewportResize();
+        this._onViewportResize();
     }
 
     onDeactivate() {
         this.engine.onXRSessionStart.remove(this._onSessionStartCallback!);
+        this.engine.onResize.remove(this._onViewportResize);
 
         this._setCursorVisibility(false);
         if (this.hoveringObject) this.notify('onUnhover', null);
