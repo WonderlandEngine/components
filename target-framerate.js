@@ -23,7 +23,7 @@ export class TargetFramerate extends Component {
     };
 
     start() {
-        this.onSessionStartCallback = this.setTargetFramerate().bind(this);
+        this.onSessionStartCallback = this.setTargetFramerate.bind(this);
     }
 
     onActivate() {
@@ -36,9 +36,9 @@ export class TargetFramerate extends Component {
 
     setTargetFramerate(s) {
         if (s.supportedFrameRates && s.updateTargetFrameRate) {
-            const a = this.engine.xrSession.supportedFrameRates;
+            const a = this.engine.xr.session.supportedFrameRates;
             a.sort((a, b) => Math.abs(a - this.framerate) - Math.abs(b - this.framerate));
-            this.engine.xrSession.updateTargetFrameRate(a[0]);
+            this.engine.xr.session.updateTargetFrameRate(a[0]);
         }
     }
 }
