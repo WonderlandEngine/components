@@ -1,4 +1,5 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component, Property} from '@wonderlandengine/api';
+import {setFirstMaterialTexture} from './utils/utils.js';
 
 /**
  * Downloads an image from URL and applies it as `diffuseTexture` or `flatTexture`
@@ -15,9 +16,11 @@ export class ImageTexture extends Component {
     static TypeName = 'image-texture';
     static Properties = {
         /** URL to download the image from */
-        url: {type: Type.String},
+        url: Property.string(),
         /** Material to apply the video texture to */
-        material: {type: Type.Material},
+        material: Property.material(),
+        /** Name of the texture property to set */
+        textureProperty: Property.string('auto'),
     };
 
     start() {
@@ -29,17 +32,8 @@ export class ImageTexture extends Component {
             .load(this.url, 'anonymous')
             .then((texture) => {
                 const mat = this.material;
-                const shader = mat.shader;
-                if (shader === 'Flat Opaque Textured') {
-                    mat.flatTexture = texture;
-                } else if (shader === 'Phong Opaque Textured' || shader === 'Foliage') {
-                    mat.diffuseTexture = texture;
-                } else if (shader === 'Background') {
-                    mat.texture = texture;
-                } else if (shader === 'Physical Opaque Textured') {
-                    mat.albedoTexture = texture;
-                } else {
-                    console.error('Shader', shader, 'not supported by image-texture');
+                if (!setFirstMaterialTexture(mat, texture, this.textureProperty)) {
+                    console.error('Shader', mat.shader, 'not supported by image-texture');
                 }
             })
             .catch(console.err);
