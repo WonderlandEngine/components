@@ -4,13 +4,7 @@ Wonderland Engine's official component library.
 
 Learn more about Wonderland Engine at [https://wonderlandengine.com](https://wonderlandengine.com).
 
-# Versioning
-
-As npm packages only support three digits of [semantic versioning](https://docs.npmjs.com/about-semantic-versioning),
-the package version **does not match the editor version**.
-Only the first two digits match the editor, the rest should be seen as a "package version".
-
-# Usage
+## Usage
 
 Install the components to your project's package as follows:
 ```
@@ -20,7 +14,7 @@ npm i --save @wonderlandengine/components
 Wonderland Editor will automatically detect all components in the package add auto-import
 those that you use in the scene.
 
-# Development
+## Development
 
 Start by installing all dependencies:
 
@@ -33,7 +27,7 @@ To build the TypeScript code, run the `build` or `build:watch` script:
 npm run build:watch
 ```
 
-# Running Tests
+## Running Tests
 
 Some components have automated tests, you can run them with the `test` and `test:watch` scripts:
 ```
@@ -44,3 +38,8 @@ To run tests with a deploy from archive, use the `DEPLOY_FOLDER` environment var
 ```
 DEPLOY_FOLDER="../../some/deploy" npm run test:watch
 ```
+
+## License
+
+Wonderland Engine API TypeScript and JavaScript code is released under MIT license.
+The runtime and editor are licensed under the [Wonderland Engine EULA](https://wonderlandengine.com/eula)
