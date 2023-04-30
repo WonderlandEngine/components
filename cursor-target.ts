@@ -1,5 +1,5 @@
 import {Component, Object3D, Emitter} from '@wonderlandengine/api';
-import {Cursor} from './cursor.js';
+import {Cursor, EventTypes} from './cursor.js';
 
 /**
  * Click/hover/move/button target for [cursor](#cursor).
@@ -60,19 +60,19 @@ export class CursorTarget extends Component {
     static Properties = {};
 
     /** Emitter for events when the target is hovered */
-    onHover = new Emitter<[Object3D, Cursor]>();
+    onHover = new Emitter<[Object3D, Cursor, EventTypes?]>();
     /** Emitter for events when the target is unhovered */
-    onUnhover = new Emitter<[Object3D, Cursor]>();
+    onUnhover = new Emitter<[Object3D, Cursor, EventTypes?]>();
     /** Emitter for events when the target is clicked */
-    onClick = new Emitter<[Object3D, Cursor]>();
+    onClick = new Emitter<[Object3D, Cursor, EventTypes?]>();
     /** Emitter for events when the cursor moves on the target */
-    onMove = new Emitter<[Object3D, Cursor]>();
+    onMove = new Emitter<[Object3D, Cursor, EventTypes?]>();
     /** Emitter for events when the user pressed the select button on the target */
-    onDown = new Emitter<[Object3D, Cursor]>();
+    onDown = new Emitter<[Object3D, Cursor, EventTypes?]>();
     /** Emitter for events when the user unpressed the select button on the target */
-    onUp = new Emitter<[Object3D, Cursor]>();
+    onUp = new Emitter<[Object3D, Cursor, EventTypes?]>();
     /** Emitter for events when the user scrolls on the target */
-    onScroll = new Emitter<[Object3D, Cursor]>();
+    onScroll = new Emitter<[Object3D, Cursor, EventTypes?]>();
 
     /**
      * @deprecated Use the emitter instead.

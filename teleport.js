@@ -105,8 +105,16 @@ export class TeleportComponent extends Component {
             this.handedness = ['left', 'right'][this.handedness - 1];
         }
 
-        this.engine.onXRSessionStart.push(this.setupVREvents.bind(this));
+        this.onSessionStartCallback = this.setupVREvents.bind(this);
         this.teleportIndicatorMeshObject.active = false;
+    }
+
+    onActivate() {
+        this.engine.onXRSessionStart.add(this.onSessionStartCallback);
+    }
+
+    onDeactivate() {
+        this.engine.onXRSessionStart.remove(this.onSessionStartCallback);
     }
 
     /* Get current camera Y rotation */

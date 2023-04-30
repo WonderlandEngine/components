@@ -1,4 +1,5 @@
-import {Component} from '@wonderlandengine/api';
+import {Component, Emitter} from '@wonderlandengine/api';
+import {property} from '@wonderlandengine/api/decorators.js';
 import {setXRRigidTransformLocal} from './utils/webxr.js';
 
 /**
@@ -11,18 +12,57 @@ import {setXRRigidTransformLocal} from './utils/webxr.js';
  */
 export class HitTestLocation extends Component {
     static TypeName = 'hit-test-location';
-    static Properties = {};
 
     tempScaling = new Float32Array(3);
     visible = false;
     xrHitTestSource: XRHitTestSource | null = null;
 
-    start() {
-        this.engine.onXRSessionStart.add(this.xrSessionStart.bind(this));
-        this.engine.onXRSessionEnd.add(this.xrSessionEnd.bind(this));
+    /** Reference space for creating the hit test when the session starts */
+    xrReferenceSpace: XRReferenceSpace | null = null;
 
-        this.tempScaling.set(this.object.scalingLocal);
-        this.object.scale([0, 0, 0]);
+    /**
+     * For maintaining backwards compatibility: Whether to scale the object to 0 and back.
+     * @deprecated Use onHitLost and onHitFound instead.
+     */
+    @property.bool(true)
+    scaleObject = true;
+
+    /** Emits an event when the hit test switches from visible to invisible */
+    onHitLost = new Emitter<[HitTestLocation]>();
+
+    /** Emits an event when the hit test switches from invisible to visible */
+    onHitFound = new Emitter<[HitTestLocation]>();
+
+    onSessionStartCallback: ((s: XRSession) => void) | null = null;
+    onSessionEndCallback: (() => void) | null = null;
+
+    start() {
+        this.onSessionStartCallback = this.onXRSessionStart.bind(this);
+        this.onSessionEndCallback = this.onXRSessionEnd.bind(this);
+
+        if (this.scaleObject) {
+            this.tempScaling.set(this.object.scalingLocal);
+            this.object.scale([0, 0, 0]);
+
+            this.onHitLost.add(() => {
+                this.tempScaling.set(this.object.scalingLocal);
+                this.object.scale([0, 0, 0]);
+            });
+            this.onHitFound.add(() => {
+                this.object.scalingLocal.set(this.tempScaling);
+                this.object.setDirty();
+            });
+        }
+    }
+
+    onActivate() {
+        this.engine.onXRSessionStart.add(this.onSessionStartCallback!);
+        this.engine.onXRSessionEnd.add(this.onSessionEndCallback!);
+    }
+
+    onDeactivate() {
+        this.engine.onXRSessionStart.remove(this.onSessionStartCallback!);
+        this.engine.onXRSessionEnd.remove(this.onSessionEndCallback!);
     }
 
     update() {
@@ -30,11 +70,10 @@ export class HitTestLocation extends Component {
         if (this.xrHitTestSource) {
             const frame = this.engine.xrFrame;
             if (!frame) return;
+
             let hitTestResults = frame.getHitTestResults(this.xrHitTestSource);
             if (hitTestResults.length > 0) {
-                let pose = hitTestResults[0].getPose(
-                    this.engine.xr!.referenceSpaceForType('viewer')!
-                );
+                let pose = hitTestResults[0].getPose(this.engine.xr!.currentReferenceSpace);
                 this.visible = !!pose;
                 if (pose) {
                     setXRRigidTransformLocal(this.object, pose.transform);
@@ -44,25 +83,20 @@ export class HitTestLocation extends Component {
             }
         }
 
+        /* Emit events for visible state change */
         if (this.visible != wasVisible) {
-            if (!this.visible) {
-                this.tempScaling.set(this.object.scalingLocal);
-                this.object.scale([0, 0, 0]);
-            } else {
-                this.object.scalingLocal.set(this.tempScaling);
-                this.object.setDirty();
-            }
+            (this.visible ? this.onHitFound : this.onHitLost).notify(this);
         }
     }
 
-    getHitTestResults() {
-        if (!this.engine.xr?.frame) return [];
+    getHitTestResults(frame: XRFrame | null = this.engine.xr?.frame ?? null) {
+        if (!frame) return [];
         /* May happen if the hit test source couldn't be created */
         if (!this.xrHitTestSource) return [];
-        return this.engine.xr.frame.getHitTestResults(this.xrHitTestSource);
+        return frame.getHitTestResults(this.xrHitTestSource);
     }
 
-    xrSessionStart(session: XRSession) {
+    onXRSessionStart(session: XRSession) {
         if (session.requestHitTestSource === undefined) {
             console.error(
                 'hit-test-location: hit test feature not available. Deactivating component.'
@@ -71,16 +105,19 @@ export class HitTestLocation extends Component {
             return;
         }
 
-        const viewerSpace = this.engine.xr!.referenceSpaceForType('viewer')!;
         session!
-            .requestHitTestSource({space: viewerSpace})!
+            .requestHitTestSource({
+                space:
+                    this.xrReferenceSpace ??
+                    this.engine.xr!.referenceSpaceForType('viewer')!,
+            })!
             .then((hitTestSource) => {
                 this.xrHitTestSource = hitTestSource;
             })
             .catch(console.error);
     }
 
-    xrSessionEnd() {
+    onXRSessionEnd() {
         if (!this.xrHitTestSource) return;
         this.xrHitTestSource.cancel();
         this.xrHitTestSource = null;

@@ -1,15 +1,39 @@
 import {
     Component,
-    Type,
     Object3D,
     InputComponent,
     ViewComponent,
+    Emitter,
+    WonderlandEngine,
     RayHit,
     ListenerCallback,
 } from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {vec3, mat4} from 'gl-matrix';
 import {CursorTarget} from './cursor-target.js';
+import {HitTestLocation} from './hit-test-location.js';
+
+const tempVec = new Float32Array(3);
+
+export type EventTypes = PointerEvent | MouseEvent | WheelEvent | XRInputSourceEvent;
+
+/** Global target for {@link Cursor} */
+class CursorTargetEmitters<T> {
+    /** Emitter for events when the target is hovered */
+    onHover = new Emitter<[T, Cursor, EventTypes?]>();
+    /** Emitter for events when the target is unhovered */
+    onUnhover = new Emitter<[T, Cursor, EventTypes?]>();
+    /** Emitter for events when the target is clicked */
+    onClick = new Emitter<[T, Cursor, EventTypes?]>();
+    /** Emitter for events when the cursor moves on the target */
+    onMove = new Emitter<[T, Cursor, EventTypes?]>();
+    /** Emitter for events when the user pressed the select button on the target */
+    onDown = new Emitter<[T, Cursor, EventTypes?]>();
+    /** Emitter for events when the user unpressed the select button on the target */
+    onUp = new Emitter<[T, Cursor, EventTypes?]>();
+    /** Emitter for events when the user scrolls on the target */
+    onScroll = new Emitter<[T, Cursor, EventTypes?]>();
+}
 
 const TOUCHPAD_PROFILES = [
     'generic-trigger-squeeze-touchpad-thumbstick',
@@ -41,33 +65,42 @@ const THUMBSTICK_PROFILES = [
  * `.globalTarget` can be used to call callbacks for all objects, even those that
  * do not have a cursor target attached, but match the collision group.
  *
+ * `.hitTestTarget` can be used to call callbacks WebXR hit test results,
+ *
  * See [Animation Example](/showcase/animation).
  */
 export class Cursor extends Component {
     static TypeName = 'cursor';
 
-    private collisionMask = 0;
-    private maxDistance = 100;
-    private onDestroyCallbacks: (() => void)[] = [];
-    private input: InputComponent | null = null;
-    private origin = new Float32Array(3);
-    private cursorObjScale = new Float32Array(3);
-    private direction = new Float32Array(3);
-    private tempVec = new Float32Array(3);
-    private projectionMatrix = new Float32Array(16);
-    private viewComponent: ViewComponent | null = null;
-    private visible = true;
-    private isDown = false;
-    private lastIsDown = false;
-    private arTouchDown = false;
+    /* Dependencies is deprecated, but we keep it here for compatibility
+     * with 1.0.0-rc2 until 1.0.0 is released */
+    static Dependencies = [HitTestLocation];
+    static onRegister(engine: WonderlandEngine) {
+        engine.registerComponent(HitTestLocation);
+    }
 
-    private lastCursorPosOnTarget = new Float32Array(3);
-    private hoveringObject: Object3D | null = null;
-    private hoveringObjectTarget: CursorTarget | null = null;
-    private cursorRayScale = new Float32Array(3);
+    private _collisionMask = 0;
+    private _onDeactivateCallbacks: (() => void)[] = [];
+    private _input: InputComponent | null = null;
+    private _origin = new Float32Array(3);
+    private _cursorObjScale = new Float32Array(3);
+    private _direction = new Float32Array(3);
+    private _projectionMatrix = new Float32Array(16);
+    private _viewComponent: ViewComponent | null = null;
+    private _isDown = false;
+    private _lastIsDown = false;
+    private _arTouchDown = false;
+
+    private _lastCursorPosOnTarget = new Float32Array(3);
+    private _cursorRayScale = new Float32Array(3);
+
+    private _hitTestLocation: HitTestLocation | null = null;
+    private _hitTestObject: Object3D | null = null;
+
+    private _onSessionStartCallback: ((s: XRSession) => void) | null = null;
+
     private _scrollDeltaX = 0;
     private _scrollDeltaY = 0;
-    private _sessionListener!: ListenerCallback<[ XRSession, XRSessionMode ]>;
     private _xrInput: XRInputSource | null = null;
     private _xrLastHandedness: XRHandedness | null = null;
     /**
@@ -79,10 +112,40 @@ export class Cursor extends Component {
     private _xrScrollEmulationMode: number = 0;
 
     /**
-     * Global target is a dummy component that lets you receive
-     * global cursor events.
+     * Whether the cursor (and cursorObject) is visible, i.e. pointing at an object
+     * that matches the collision group
      */
-    globalTarget: CursorTarget = new CursorTarget(this.engine!);
+    visible = true;
+
+    /** Maximum distance for the cursor's ray cast */
+    maxDistance = 100;
+
+    /** Currently hovered object */
+    hoveringObject: Object3D | null = null;
+
+    /** CursorTarget component of the currently hovered object */
+    hoveringObjectTarget: CursorTarget | null = null;
+
+    /** Whether the cursor is hovering reality via hit-test */
+    hoveringReality = false;
+
+    /**
+     * Global target lets you receive global cursor events on any object.
+     */
+    globalTarget = new CursorTargetEmitters<Object3D>();
+
+    /**
+     * Hit test target lets you receive cursor events for "reality", if
+     * `useWebXRHitTest` is set to `true`.
+     *
+     * @example
+     * ```js
+     * cursor.hitTestTarget.onClick.add((hit, cursor) => {
+     *     // User clicked on reality
+     * });
+     * ```
+     */
+    hitTestTarget = new CursorTargetEmitters<XRHitTestResult | null>();
 
     /** World position of the cursor */
     cursorPos = new Float32Array(3);
@@ -127,18 +190,24 @@ export class Cursor extends Component {
     @property.float(0.1)
     emulatedXRScrollDeadzone!: number;
 
-    init() {
-        this._sessionListener = this.updateXRSession.bind(this);
-        this.engine.onXRSessionStart.add(this._sessionListener);
-    }
+    /**
+     * Use WebXR hit-test if available.
+     *
+     * Attaches a hit-test-location component to the cursorObject, which will be used
+     * by the cursor to send events to the hitTestTarget with HitTestResult.
+     */
+    @property.bool(false)
+    useWebXRHitTest: boolean = false;
 
-    destroy() {
-        this.updateXRSession(null);
-        this.engine.onXRSessionStart.remove(this._sessionListener);
-    }
+    _onViewportResize = () => {
+        if (!this._viewComponent) return;
+        /* Projection matrix will change if the viewport is resized, which will affect the
+         * projection matrix because of the aspect ratio. */
+        mat4.invert(this._projectionMatrix, this._viewComponent.projectionMatrix);
+    };
 
     start() {
-        this.collisionMask = 1 << this.collisionGroup;
+        this._collisionMask = 1 << this.collisionGroup;
 
         if (this.handedness == 0) {
             const inputComp = this.object.getComponent('input');
@@ -151,75 +220,72 @@ export class Cursor extends Component {
                 );
             } else {
                 this.handedness = inputComp.handedness || 'none';
-                this.input = inputComp;
+                this._input = inputComp;
             }
         } else {
             this.handedness = ['left', 'right', 'none'][(this.handedness as number) - 1];
         }
 
-        this.viewComponent = this.object.getComponent(ViewComponent);
+        this._viewComponent = this.object.getComponent(ViewComponent);
+
+        if (this.useWebXRHitTest) {
+            this._hitTestObject = this.engine.scene.addObject(this.object);
+            this._hitTestLocation =
+                this._hitTestObject.addComponent(HitTestLocation, {
+                    scaleObject: false,
+                }) ?? null;
+        }
+
+        this._onSessionStartCallback = this.setupVREvents.bind(this);
+    }
+
+    onActivate() {
+        this.engine.onXRSessionStart.add(this._onSessionStartCallback!);
+        this.engine.onResize.add(this._onViewportResize);
+
+        this._setCursorVisibility(true);
+
         /* If this object also has a view component, we will enable inverse-projected mouse clicks,
          * otherwise just use the objects transformation */
-        if (this.viewComponent != null) {
+        if (this._viewComponent != null) {
+            const canvas = this.engine.canvas!;
+
             const onClick = this.onClick.bind(this);
-            this.engine.canvas!.addEventListener('click', onClick);
             const onPointerMove = this.onPointerMove.bind(this);
-            this.engine.canvas!.addEventListener('pointermove', onPointerMove);
             const onPointerDown = this.onPointerDown.bind(this);
-            this.engine.canvas!.addEventListener('pointerdown', onPointerDown);
             const onPointerUp = this.onPointerUp.bind(this);
-            this.engine.canvas!.addEventListener('pointerup', onPointerUp);
             const onWheel = this.onWheel.bind(this);
-            this.engine.canvas!.addEventListener('wheel', onWheel);
 
-            mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
-            const onViewportResize = this.onViewportResize.bind(this);
-            window.addEventListener('resize', onViewportResize);
+            canvas.addEventListener('click', onClick);
+            canvas.addEventListener('pointermove', onPointerMove);
+            canvas.addEventListener('pointerdown', onPointerDown);
+            canvas.addEventListener('pointerup', onPointerUp);
+            canvas.addEventListener('wheel', onWheel);
 
-            this.onDestroyCallbacks.push(() => {
-                this.engine.canvas!.removeEventListener('click', onClick);
-                this.engine.canvas!.removeEventListener('pointermove', onPointerMove);
-                this.engine.canvas!.removeEventListener('pointerdown', onPointerDown);
-                this.engine.canvas!.removeEventListener('pointerup', onPointerUp);
-                this.engine.canvas!.removeEventListener('wheel', onWheel);
-                window.removeEventListener('resize', onViewportResize);
+            this._onDeactivateCallbacks.push(() => {
+                canvas.removeEventListener('click', onClick);
+                canvas.removeEventListener('pointermove', onPointerMove);
+                canvas.removeEventListener('pointerdown', onPointerDown);
+                canvas.removeEventListener('pointerup', onPointerUp);
+                canvas.removeEventListener('wheel', onWheel);
             });
         }
 
-        const onXRSessionStart = this.setupVREvents.bind(this);
-        this.engine.onXRSessionStart.add(onXRSessionStart);
-        this.onDestroyCallbacks.push(() => {
-            this.engine.onXRSessionStart.remove(onXRSessionStart);
-        });
+        this._onViewportResize();
+
+        /* Set initial origin and direction */
+        this.object.getTranslationWorld(this._origin);
+        this.object.getForward(this._direction);
 
         if (this.cursorRayObject) {
-            this.cursorRayScale.set(this.cursorRayObject.scalingLocal);
+            this._cursorRayScale.set(this.cursorRayObject.scalingLocal);
 
             /* Set ray to a good default distance of the cursor of 1m */
-            this.object.getTranslationWorld(this.origin);
-            this.object.getForward(this.direction);
-            this._setCursorRayTransform(
-                vec3.add(this.tempVec, this.origin, this.direction)
-            );
+            this._setCursorRayTransform(vec3.add(tempVec, this._origin, this._direction));
         }
     }
 
-    private updateXRSession(session: XRSession | null) {
-        if (session === null) {
-            this.changeXRInputSource(null);
-            return;
-        }
-
-        session.addEventListener('inputsourceschange', this.handleXRInputChange.bind(this));
-
-        for (const source of session.inputSources) {
-            if (source.handedness === this.handedness) {
-                this.changeXRInputSource(source);
-            }
-        }
-    }
-
-    private handleXRInputChange(e: XRInputSourceChangeEvent) {
+    private onInputSourcesChange(e: XRInputSourceChangeEvent) {
         let needsRecheck = false;
         if (this._xrInput !== null) {
             if (this._xrLastHandedness !== this.handedness) {
@@ -260,21 +326,14 @@ export class Cursor extends Component {
         }
     }
 
-    onViewportResize() {
-        if (!this.viewComponent) return;
-        /* Projection matrix will change if the viewport is resized, which will affect the
-         * projection matrix because of the aspect ratio. */
-        mat4.invert(this.projectionMatrix, this.viewComponent.projectionMatrix);
-    }
-
     _setCursorRayTransform(hitPosition: vec3) {
         if (!this.cursorRayObject) return;
-        const dist = vec3.dist(this.origin, hitPosition);
+        const dist = vec3.dist(this._origin, hitPosition);
         this.cursorRayObject.setTranslationLocal([0.0, 0.0, -dist / 2]);
         if (this.cursorRayScalingAxis != 4) {
             this.cursorRayObject.resetScaling();
-            this.cursorRayScale[this.cursorRayScalingAxis] = dist / 2;
-            this.cursorRayObject.scale(this.cursorRayScale);
+            this._cursorRayScale[this.cursorRayScalingAxis] = dist / 2;
+            this.cursorRayObject.scale(this._cursorRayScale);
         }
     }
 
@@ -285,9 +344,9 @@ export class Cursor extends Component {
 
         if (visible) {
             this.cursorObject.resetScaling();
-            this.cursorObject.scale(this.cursorObjScale);
+            this.cursorObject.scale(this._cursorObjScale);
         } else {
-            this.cursorObjScale.set(this.cursorObject.scalingLocal);
+            this._cursorObjScale.set(this.cursorObject.scalingLocal);
             this.cursorObject.scale([0, 0, 0]);
         }
     }
@@ -388,6 +447,27 @@ export class Cursor extends Component {
     }
 
     update(dt: number) {
+        /* If in VR, set the cursor ray based on object transform */
+        /* Since Google Cardboard tap is registered as arTouchDown without a gamepad, we need to check for gamepad presence */
+        if (
+            this.engine.xr &&
+            this._arTouchDown &&
+            this._input &&
+            this.engine.xr.session.inputSources[0].handedness === 'none' &&
+            this.engine.xr.session.inputSources[0].gamepad
+        ) {
+            const p = this.engine.xr.session.inputSources[0].gamepad.axes;
+            /* Screenspace Y is inverted */
+            this._direction[0] = p[0];
+            this._direction[1] = -p[1];
+            this._direction[2] = -1.0;
+            this.updateDirection();
+        } else {
+            this.object.getTranslationWorld(this._origin);
+            this.object.getForwardWorld(this._direction);
+        }
+
+        /* Emulate XR scrolling */
         if (this._xrLastHandedness !== this.handedness) {
             this.changeXRInputSource(null);
 
@@ -402,57 +482,16 @@ export class Cursor extends Component {
 
         let doScroll = false;
         if (this.emulateXRScroll && this.engine.xr) {
-            if (this.input) {
-                if (this.input.xrInputSource) {
-                    doScroll = this.emulateScroll(dt, this.input.xrInputSource);
+            if (this._input) {
+                if (this._input.xrInputSource) {
+                    doScroll = this.emulateScroll(dt, this._input.xrInputSource);
                 }
             } else if (this._xrInput) {
                 doScroll = this.emulateScroll(dt, this._xrInput);
             }
         }
 
-        this.doUpdate(false, doScroll);
-    }
-
-    doUpdate(doClick: boolean, doScroll: boolean) {
-        /* If in VR, set the cursor ray based on object transform */
-        if (this.engine.xrSession) {
-            /* Since Google Cardboard tap is registered as arTouchDown without a gamepad, we need to check for gamepad presence */
-            if (
-                this.arTouchDown &&
-                this.input &&
-                this.engine.xrSession.inputSources[0].handedness === 'none' &&
-                this.engine.xrSession.inputSources[0].gamepad
-            ) {
-                const p = this.engine.xrSession.inputSources[0].gamepad.axes;
-                /* Screenspace Y is inverted */
-                this.direction[0] = p[0];
-                this.direction[1] = -p[1];
-                this.direction[2] = -1.0;
-                this.updateDirection();
-            } else {
-                this.object.getTranslationWorld(this.origin);
-                this.object.getForward(this.direction);
-            }
-        }
-
-        const rayHit =
-            this.rayCastMode == 0
-                ? this.engine.scene.rayCast(this.origin, this.direction, this.collisionMask)
-                : this.engine.physics!.rayCast(
-                      this.origin,
-                      this.direction,
-                      this.collisionMask,
-                      this.maxDistance
-                  );
-
-        if (rayHit.hitCount > 0) {
-            this.cursorPos.set(rayHit.locations[0]);
-        } else {
-            this.cursorPos.fill(0);
-        }
-
-        this.hoverBehaviour(rayHit, doClick, doScroll);
+        this.rayCast(null, this.engine.xr?.frame, false, doScroll);
 
         if (this.cursorObject) {
             if (
@@ -468,86 +507,132 @@ export class Cursor extends Component {
         }
     }
 
-    hoverBehaviour(rayHit: RayHit, doClick: boolean, doScroll: boolean) {
-        if (rayHit.hitCount > 0) {
-            if (!this.hoveringObject || !this.hoveringObject.equals(rayHit.objects[0])) {
+    /* Returns the hovered cursor target, if available */
+    private notify(
+        event: 'onHover' | 'onUnhover' | 'onClick' | 'onUp' | 'onDown' | 'onMove' | 'onScroll',
+        originalEvent: EventTypes | null
+    ) {
+        const target = this.hoveringObject;
+        if (target) {
+            const cursorTarget = this.hoveringObjectTarget;
+            if (cursorTarget)
+                cursorTarget[event].notify(target, this, originalEvent ?? undefined);
+            this.globalTarget![event].notify(target, this, originalEvent ?? undefined);
+        }
+    }
+
+    private hoverBehaviour(
+        rayHit: RayHit,
+        hitTestResult: XRHitTestResult | null,
+        doClick: boolean,
+        doScroll: boolean,
+        originalEvent: EventTypes | null
+    ) {
+        /* Old API version does not return null for objects[0] if no hit */
+        const hit = !this.hoveringReality && rayHit.hitCount > 0 ? rayHit.objects[0] : null;
+        if (hit) {
+            if (!this.hoveringObject || !this.hoveringObject.equals(hit)) {
                 /* Unhover previous, if exists */
                 if (this.hoveringObject) {
-                    const cursorTarget = this.hoveringObject.getComponent(CursorTarget);
-                    if (cursorTarget)
-                        cursorTarget.onUnhover.notify(this.hoveringObject, this);
-                    this.globalTarget!.onUnhover.notify(this.hoveringObject, this);
+                    this.notify('onUnhover', originalEvent);
                 }
 
                 /* Hover new object */
-                this.hoveringObject = rayHit.objects[0] as Object3D;
+                this.hoveringObject = hit;
+                this.hoveringObjectTarget = this.hoveringObject.getComponent(CursorTarget);
+
                 if (this.styleCursor) this.engine.canvas!.style.cursor = 'pointer';
-
-                let cursorTarget = this.hoveringObject.getComponent(CursorTarget);
-                if (cursorTarget) {
-                    this.hoveringObjectTarget = cursorTarget;
-                    cursorTarget.onHover.notify(this.hoveringObject, this);
-                }
-                this.globalTarget!.onHover.notify(this.hoveringObject, this);
+                this.notify('onHover', originalEvent);
             }
-
-            if (this.hoveringObjectTarget) {
-                this.hoveringObject.toLocalSpaceTransform(this.tempVec, this.cursorPos);
-                if (
-                    this.lastCursorPosOnTarget[0] != this.tempVec[0] ||
-                    this.lastCursorPosOnTarget[1] != this.tempVec[1] ||
-                    this.lastCursorPosOnTarget[2] != this.tempVec[2]
-                ) {
-                    this.hoveringObjectTarget.onMove.notify(this.hoveringObject, this);
-                    this.lastCursorPosOnTarget.set(this.tempVec);
-                }
-            }
-
-            /* Cursor up/down */
-            const cursorTarget = this.hoveringObject.getComponent(CursorTarget);
-            if (this.isDown !== this.lastIsDown) {
-                if (this.isDown) {
-                    /* Down */
-                    if (cursorTarget) cursorTarget.onDown.notify(this.hoveringObject, this);
-                    this.globalTarget!.onDown.notify(this.hoveringObject, this);
-                } else {
-                    /* Up */
-                    if (cursorTarget) cursorTarget.onUp.notify(this.hoveringObject, this);
-                    this.globalTarget!.onUp.notify(this.hoveringObject, this);
-                }
-            }
-
-            /* Click */
-            if (doClick) {
-                if (cursorTarget) cursorTarget.onClick.notify(this.hoveringObject, this);
-                this.globalTarget!.onClick.notify(this.hoveringObject, this);
-            }
-
-            /* Scroll */
-            if (doScroll) {
-                if (cursorTarget) cursorTarget.onScroll.notify(this.hoveringObject, this);
-                this.globalTarget!.onScroll.notify(this.hoveringObject, this);
-            }
-        } else if (this.hoveringObject && rayHit.hitCount == 0) {
-            const cursorTarget = this.hoveringObject.getComponent(CursorTarget);
-            if (cursorTarget) cursorTarget.onUnhover.notify(this.hoveringObject, this);
-            this.globalTarget!.onUnhover.notify(this.hoveringObject, this);
+        } else if (this.hoveringObject) {
+            /* Previously hovering object, now hovering nothing */
+            this.notify('onUnhover', originalEvent);
             this.hoveringObject = null;
             this.hoveringObjectTarget = null;
             if (this.styleCursor) this.engine.canvas!.style.cursor = 'default';
         }
 
-        this.lastIsDown = this.isDown;
+        if (this.hoveringObject) {
+            /* onDown/onUp for object */
+            if (this._isDown !== this._lastIsDown) {
+                this.notify(this._isDown ? 'onDown' : 'onUp', originalEvent);
+            }
+
+            /* onClick for object */
+            if (doClick) this.notify('onClick', originalEvent);
+
+            /* onScroll for object */
+            if (doScroll) this.notify('onScroll', originalEvent);
+        } else if (this.hoveringReality) {
+            /* onDown/onUp for hit test */
+            if (this._isDown !== this._lastIsDown) {
+                (this._isDown ? this.hitTestTarget.onDown : this.hitTestTarget.onUp).notify(
+                    hitTestResult,
+                    this,
+                    originalEvent ?? undefined
+                );
+            }
+
+            /* onClick for hit test */
+            if (doClick)
+                this.hitTestTarget.onClick.notify(
+                    hitTestResult,
+                    this,
+                    originalEvent ?? undefined
+                );
+
+            /* onScroll for hit test */
+            if (doScroll)
+                this.hitTestTarget.onScroll.notify(
+                    hitTestResult,
+                    this,
+                    originalEvent ?? undefined
+                );
+        }
+
+        /* onMove */
+        if (hit) {
+            if (this.hoveringObject) {
+                this.hoveringObject.toLocalSpaceTransform(tempVec, this.cursorPos);
+            } else {
+                tempVec.set(this.cursorPos);
+            }
+
+            if (
+                this._lastCursorPosOnTarget[0] != tempVec[0] ||
+                this._lastCursorPosOnTarget[1] != tempVec[1] ||
+                this._lastCursorPosOnTarget[2] != tempVec[2]
+            ) {
+                this.notify('onMove', originalEvent);
+                this._lastCursorPosOnTarget.set(tempVec);
+            }
+        } else if (this.hoveringReality) {
+            if (
+                this._lastCursorPosOnTarget[0] != this.cursorPos[0] ||
+                this._lastCursorPosOnTarget[1] != this.cursorPos[1] ||
+                this._lastCursorPosOnTarget[2] != this.cursorPos[2]
+            ) {
+                this.hitTestTarget.onMove.notify(
+                    hitTestResult,
+                    this,
+                    originalEvent ?? undefined
+                );
+                this._lastCursorPosOnTarget.set(this.cursorPos);
+            }
+        }
+
+        this._lastIsDown = this._isDown;
     }
 
     /**
      * Setup event listeners on session object
      * @param s WebXR session
      *
-     * Sets up 'select' and 'end' events and caches the session to avoid
-     * Module object access.
+     * Sets up 'select' and 'end' events.
      */
     setupVREvents(s: XRSession) {
+        if (!s) console.error('setupVREvents called without a valid session');
+
         /* If in VR, one-time bind the listener */
         const onSelect = this.onSelect.bind(this);
         s.addEventListener('select', onSelect);
@@ -555,100 +640,108 @@ export class Cursor extends Component {
         s.addEventListener('selectstart', onSelectStart);
         const onSelectEnd = this.onSelectEnd.bind(this);
         s.addEventListener('selectend', onSelectEnd);
+        const onInputSourcesChange = this.onInputSourcesChange.bind(this);
+        s.addEventListener('inputsourceschange', onInputSourcesChange);
 
-        this.onDestroyCallbacks.push(() => {
+        this._onDeactivateCallbacks.push(() => {
+            this.changeXRInputSource(null);
+
             if (!this.engine.xrSession) return;
             s.removeEventListener('select', onSelect);
             s.removeEventListener('selectstart', onSelectStart);
             s.removeEventListener('selectend', onSelectEnd);
+            s.removeEventListener('inputsourceschange', onInputSourcesChange);
         });
 
         /* After AR session was entered, the projection matrix changed */
-        this.onViewportResize();
+        this._onViewportResize();
+
+        /* Get initial list of XR inputs */
+        for (const source of s.inputSources) {
+            if (source.handedness === this.handedness) {
+                this.changeXRInputSource(source);
+            }
+        }
+    }
+
+    onDeactivate() {
+        this.engine.onXRSessionStart.remove(this._onSessionStartCallback!);
+        this.engine.onResize.remove(this._onViewportResize);
+
+        this._setCursorVisibility(false);
+        if (this.hoveringObject) this.notify('onUnhover', null);
+        if (this.cursorRayObject) this.cursorRayObject.scale([0, 0, 0]);
+
+        /* Ensure all event listeners are removed */
+        for (const f of this._onDeactivateCallbacks) f();
+        this._onDeactivateCallbacks.length = 0;
+    }
+
+    onDestroy() {
+        this._hitTestObject?.destroy();
     }
 
     /** 'select' event listener */
     onSelect(e: XRInputSourceEvent) {
         if (e.inputSource.handedness != this.handedness) return;
-        this.doUpdate(true, false);
+        this.rayCast(e, e.frame, true);
     }
 
     /** 'selectstart' event listener */
     onSelectStart(e: XRInputSourceEvent) {
-        this.arTouchDown = true;
-        if (e.inputSource.handedness == this.handedness) this.isDown = true;
+        this._arTouchDown = true;
+        if (e.inputSource.handedness == this.handedness) {
+            this._isDown = true;
+            this.rayCast(e, e.frame);
+        }
     }
 
     /** 'selectend' event listener */
     onSelectEnd(e: XRInputSourceEvent) {
-        this.arTouchDown = false;
-        if (e.inputSource.handedness == this.handedness) this.isDown = false;
+        this._arTouchDown = false;
+        if (e.inputSource.handedness == this.handedness) {
+            this._isDown = false;
+            this.rayCast(e, e.frame);
+        }
     }
 
     /** 'pointermove' event listener */
     onPointerMove(e: PointerEvent) {
         /* Don't care about secondary pointers */
         if (!e.isPrimary) return;
-        const bounds = this.engine.canvas!.getBoundingClientRect();
-        const rayHit = this.updateMousePos(
-            e.clientX,
-            e.clientY,
-            bounds.width,
-            bounds.height
-        );
+        this.updateMousePos(e);
 
-        this.hoverBehaviour(rayHit, false, false);
+        this.rayCast(e, null);
     }
 
     /** 'click' event listener */
     onClick(e: MouseEvent) {
-        const bounds = this.engine.canvas!.getBoundingClientRect();
-        const rayHit = this.updateMousePos(
-            e.clientX,
-            e.clientY,
-            bounds.width,
-            bounds.height
-        );
-        this.hoverBehaviour(rayHit, true, false);
+        this.updateMousePos(e);
+        this.rayCast(e, null, true);
     }
 
     /** 'pointerdown' event listener */
     onPointerDown(e: PointerEvent) {
         /* Don't care about secondary pointers or non-left clicks */
         if (!e.isPrimary || e.button !== 0) return;
-        const bounds = this.engine.canvas!.getBoundingClientRect();
-        const rayHit = this.updateMousePos(
-            e.clientX,
-            e.clientY,
-            bounds.width,
-            bounds.height
-        );
-        this.isDown = true;
+        this.updateMousePos(e);
+        this._isDown = true;
 
-        this.hoverBehaviour(rayHit, false, false);
+        this.rayCast(e);
     }
 
     /** 'pointerup' event listener */
     onPointerUp(e: PointerEvent) {
         /* Don't care about secondary pointers or non-left clicks */
         if (!e.isPrimary || e.button !== 0) return;
-        const bounds = this.engine.canvas!.getBoundingClientRect();
-        const rayHit = this.updateMousePos(
-            e.clientX,
-            e.clientY,
-            bounds.width,
-            bounds.height
-        );
-        this.isDown = false;
+        this.updateMousePos(e);
+        this._isDown = false;
 
-        this.hoverBehaviour(rayHit, false, false);
+        this.rayCast(e);
     }
 
     /** 'wheel' event listener */
     onWheel(e: WheelEvent) {
-        const bounds = this.engine.canvas!.getBoundingClientRect();
-        const rayHit = this.updateMousePos(e.clientX, e.clientY, bounds.width, bounds.height);
-
         let deltaX = e.deltaX;
         let deltaY = e.deltaY;
 
@@ -670,45 +763,88 @@ export class Cursor extends Component {
         this._scrollDeltaX = deltaX;
         this._scrollDeltaY = deltaY;
 
-        this.hoverBehaviour(rayHit, false, true);
+        this.rayCast(e, null, false, true);
     }
 
     /**
      * Update mouse position in non-VR mode and raycast for new position
      * @returns @ref WL.RayHit for new position.
      */
-    updateMousePos(clientX: number, clientY: number, w: number, h: number) {
+    private updateMousePos(e: PointerEvent | MouseEvent) {
+        const bounds = this.engine.canvas!.getBoundingClientRect();
         /* Get direction in normalized device coordinate space from mouse position */
-        const left = clientX / w;
-        const top = clientY / h;
-        this.direction[0] = left * 2 - 1;
-        this.direction[1] = -top * 2 + 1;
-        this.direction[2] = -1.0;
-        return this.updateDirection();
+        const left = e.clientX / bounds.width;
+        const top = e.clientY / bounds.height;
+        this._direction[0] = left * 2 - 1;
+        this._direction[1] = -top * 2 + 1;
+        this._direction[2] = -1.0;
+        this.updateDirection();
     }
 
-    updateDirection() {
-        this.object.getTranslationWorld(this.origin);
+    private updateDirection() {
+        this.object.getTranslationWorld(this._origin);
 
         /* Reverse-project the direction into view space */
-        vec3.transformMat4(this.direction, this.direction, this.projectionMatrix);
-        vec3.normalize(this.direction, this.direction);
-        vec3.transformQuat(this.direction, this.direction, this.object.transformWorld);
+        vec3.transformMat4(this._direction, this._direction, this._projectionMatrix);
+        vec3.normalize(this._direction, this._direction);
+        vec3.transformQuat(this._direction, this._direction, this.object.transformWorld);
+    }
+
+    private rayCast(
+        originalEvent: EventTypes | null,
+        frame: XRFrame | null = null,
+        doClick = false,
+        doScroll = false,
+    ) {
         const rayHit =
             this.rayCastMode == 0
-                ? this.engine.scene.rayCast(this.origin, this.direction, this.collisionMask)
+                ? this.engine.scene.rayCast(
+                      this._origin,
+                      this._direction,
+                      this._collisionMask
+                  )
                 : this.engine.physics!.rayCast(
-                      this.origin,
-                      this.direction,
-                      this.collisionMask,
+                      this._origin,
+                      this._direction,
+                      this._collisionMask,
                       this.maxDistance
                   );
 
+        let hitResultDistance = Infinity;
+        let hitTestResult = null;
+        if (this._hitTestLocation?.visible) {
+            this._hitTestObject!.getTranslationWorld(this.cursorPos);
+            hitResultDistance = vec3.distance(
+                this.object.getTranslationWorld(tempVec),
+                this.cursorPos
+            );
+
+            hitTestResult = this._hitTestLocation?.getHitTestResults(frame)[0];
+        }
+
+        let hoveringReality = false;
         if (rayHit.hitCount > 0) {
-            this.cursorPos.set(rayHit.locations[0]);
+            const d = rayHit.distances[0];
+            if (hitResultDistance >= d) {
+                /* Override cursorPos set by hit test location */
+                this.cursorPos.set(rayHit.locations[0]);
+            } else {
+                hoveringReality = true;
+            }
+        } else if (hitResultDistance < Infinity) {
+            /* cursorPos already set */
         } else {
             this.cursorPos.fill(0);
         }
+
+        if (hoveringReality && !this.hoveringReality) {
+            this.hitTestTarget.onHover.notify(hitTestResult, this);
+        } else if (!hoveringReality && this.hoveringReality) {
+            this.hitTestTarget.onUnhover.notify(hitTestResult, this);
+        }
+        this.hoveringReality = hoveringReality;
+
+        this.hoverBehaviour(rayHit, hitTestResult, doClick, originalEvent);
 
         return rayHit;
     }
@@ -725,23 +861,5 @@ export class Cursor extends Component {
      */
     get scrollDeltaY() {
         return this._scrollDeltaY;
-    }
-
-    onDeactivate() {
-        this._setCursorVisibility(false);
-        if (this.hoveringObject) {
-            const target = this.hoveringObject.getComponent(CursorTarget);
-            if (target) target.onUnhover.notify(this.hoveringObject, this);
-            this.globalTarget!.onUnhover.notify(this.hoveringObject, this);
-        }
-        if (this.cursorRayObject) this.cursorRayObject.scale([0, 0, 0]);
-    }
-
-    onActivate() {
-        this._setCursorVisibility(true);
-    }
-
-    onDestroy() {
-        for (const f of this.onDestroyCallbacks) f();
     }
 }

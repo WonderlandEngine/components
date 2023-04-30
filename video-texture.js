@@ -1,4 +1,5 @@
-import {Component, Texture, Type} from '@wonderlandengine/api';
+import {Component, Texture, Property} from '@wonderlandengine/api';
+import {setFirstMaterialTexture} from './utils/utils.js';
 
 /**
  * Downloads a video from URL and applies it as `diffuseTexture` or `flatTexture`
@@ -30,15 +31,17 @@ export class VideoTexture extends Component {
     static TypeName = 'video-texture';
     static Properties = {
         /** URL to download video from */
-        url: {type: Type.String},
+        url: Property.string(),
         /** Material to apply the video texture to */
-        material: {type: Type.Material},
+        material: Property.material(),
         /** Whether to loop the video */
-        loop: {type: Type.Bool, default: true},
+        loop: Property.bool(true),
         /** Whether to automatically start playing the video */
-        autoplay: {type: Type.Bool, default: true},
+        autoplay: Property.bool(true),
         /** Whether to mute sound */
-        muted: {type: Type.Bool, default: true},
+        muted: Property.bool(true),
+        /** Name of the texture property to set */
+        textureProperty: Property.string('auto'),
     };
 
     init() {
@@ -77,15 +80,7 @@ export class VideoTexture extends Component {
         const shader = mat.shader;
         const texture = (this.texture = new Texture(this.engine, this.video));
 
-        if (shader === 'Flat Opaque Textured') {
-            mat.flatTexture = texture;
-        } else if (shader === 'Phong Opaque Textured' || shader === 'Foliage') {
-            mat.diffuseTexture = texture;
-        } else if (shader === 'Background') {
-            mat.texture = texture;
-        } else if (shader === 'Physical Opaque Textured') {
-            mat.albedoTexture = texture;
-        } else {
+        if (!setFirstMaterialTexture(mat, texture, this.textureProperty)) {
             console.error('Shader', shader, 'not supported by video-texture');
         }
 

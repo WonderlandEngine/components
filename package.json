@@ -1,6 +1,6 @@
 {
     "name": "@wonderlandengine/components",
-    "version": "1.0.0-rc.6",
+    "version": "1.0.0-rc.8",
     "description": "Wonderland Engine's official component library.",
     "author": "Wonderland GmbH",
     "license": "MIT",
@@ -9,9 +9,12 @@
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "scripts": {
-        "build:ts": "tsc",
-        "build:ts:watch": "tsc --watch",
-        "prepublishOnly": "npm run build:ts",
+        "build": "tsc",
+        "build:watch": "tsc --watch",
+        "test": "npm run build && web-test-runner",
+        "test:single": "npm run test -- --files",
+        "test:watch": "npm run test -- --watch",
+        "prepublishOnly": "npm run build",
         "pretty": "prettier --config ./.prettierrc.json --write ./src"
     },
     "repository": {
@@ -35,12 +38,18 @@
         "dist/utils/*.d.ts"
     ],
     "dependencies": {
+        "@types/earcut": "^2.1.1",
         "@types/webxr": "^0.5.0",
-        "@wonderlandengine/api": "^1.0.0-rc.5",
+        "earcut": "^2.2.4",
         "gl-matrix": "^3.3.0",
         "howler": "^2.2.1"
     },
+    "peerDependencies": {
+        "@wonderlandengine/api": "^1.0.0 || ^1.0.0-rc.6"
+    },
     "devDependencies": {
+        "@esm-bundle/chai": "^4.3.4-fix.0",
+        "@web/test-runner": "^0.15.3",
         "prettier": "^2.8.4",
         "typescript": "^5.0.3"
     }
