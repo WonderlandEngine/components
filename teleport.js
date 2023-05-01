@@ -253,7 +253,7 @@ export class TeleportComponent extends Component {
     }
     onMousePressed() {
         let origin = [0, 0, 0];
-        quat2.getPosition(origin, this.cam.transformWorld);
+        this.cam.getPositionWorld(origin);
 
         const direction = this.cam.getForward(this._tempVec);
         let rayHit = (this.rayHit =
