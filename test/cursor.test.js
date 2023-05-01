@@ -63,7 +63,7 @@ describe('Cursor', function () {
         });
 
         const createEventCallback = (events, name) => {
-            return (...params) => events.push({name, params});
+            return () => events.push(name);
         };
 
         const targetEvents = [];
@@ -73,29 +73,23 @@ describe('Cursor', function () {
             globalEvents.length = 0;
         };
 
-        target.onHover.add(createEventCallback(targetEvents, 'onHover'));
-        target.onUnhover.add(createEventCallback(targetEvents, 'onUnhover'));
-        target.onClick.add(createEventCallback(targetEvents, 'onClick'));
-        target.onMove.add(createEventCallback(targetEvents, 'onMove'));
-        target.onDown.add(createEventCallback(targetEvents, 'onDown'));
-        target.onUp.add(createEventCallback(targetEvents, 'onUp'));
-
-        cursor.globalTarget.onHover.add(createEventCallback(globalEvents, 'onHover'));
-        cursor.globalTarget.onUnhover.add(createEventCallback(globalEvents, 'onUnhover'));
-        cursor.globalTarget.onClick.add(createEventCallback(globalEvents, 'onClick'));
-        cursor.globalTarget.onMove.add(createEventCallback(globalEvents, 'onMove'));
-        cursor.globalTarget.onDown.add(createEventCallback(globalEvents, 'onDown'));
-        cursor.globalTarget.onUp.add(createEventCallback(globalEvents, 'onUp'));
+        for (const event of [
+            'onHover',
+            'onUnhover',
+            'onClick',
+            'onMove',
+            'onDown',
+            'onUp',
+        ]) {
+            target[event].add(createEventCallback(targetEvents, event));
+            cursor.globalTarget[event].add(createEventCallback(globalEvents, event));
+        }
 
         cursor.update();
         expect(cursor.hoveringObject?.name).to.be.equal(targetObject.name);
 
-        expect(targetEvents.length).to.equal(2);
-        expect(targetEvents[0].name).to.equal('onHover');
-        expect(targetEvents[1].name).to.equal('onMove');
-        expect(globalEvents.length).to.equal(2);
-        expect(globalEvents[0].name).to.equal('onHover');
-        expect(globalEvents[1].name).to.equal('onMove');
+        expect(targetEvents).to.deep.equal(['onHover', 'onMove']);
+        expect(globalEvents).to.deep.equal(['onHover', 'onMove']);
         clearEvents();
 
         /* Rotate slighly, staying on the target, should get move event */
@@ -103,21 +97,23 @@ describe('Cursor', function () {
         cursor.update();
         expect(cursor.hoveringObject?.name).to.be.equal(targetObject.name);
 
-        expect(targetEvents.length).to.equal(1);
-        expect(targetEvents[0].name).to.equal('onMove');
-        expect(globalEvents.length).to.equal(1);
-        expect(globalEvents[0].name).to.equal('onMove');
+        expect(targetEvents).to.deep.equal(['onMove']);
+        expect(globalEvents).to.deep.equal(['onMove']);
         clearEvents();
+
+        /* Update without change, no events expected. */
+        cursor.update();
+        expect(cursor.hoveringObject?.name).to.be.equal(targetObject.name);
+        expect(targetEvents).to.deep.equal([]);
+        expect(globalEvents).to.deep.equal([]);
 
         /* Rotate the target, this should emit a move event */
         targetObject.rotateAxisAngleDeg([0, 1, 0], 2);
         cursor.update();
         expect(cursor.hoveringObject?.name).to.be.equal(targetObject.name);
 
-        expect(targetEvents.length).to.equal(1);
-        expect(targetEvents[0].name).to.equal('onMove');
-        expect(globalEvents.length).to.equal(1);
-        expect(globalEvents[0].name).to.equal('onMove');
+        expect(targetEvents).to.deep.equal(['onMove']);
+        expect(globalEvents).to.deep.equal(['onMove']);
         clearEvents();
 
         /* Rotate the cursor to other object. We should get unhover and global hover */
@@ -125,12 +121,8 @@ describe('Cursor', function () {
         cursor.update();
         expect(cursor.hoveringObject?.name).to.be.equal(targetObject2.name);
 
-        expect(targetEvents.length).to.equal(1);
-        expect(targetEvents[0].name).to.equal('onUnhover');
-        expect(globalEvents.length).to.equal(3);
-        expect(globalEvents[0].name).to.equal('onUnhover');
-        expect(globalEvents[1].name).to.equal('onHover');
-        expect(globalEvents[2].name).to.equal('onMove');
+        expect(targetEvents).to.deep.equal(['onUnhover']);
+        expect(globalEvents).to.deep.equal(['onUnhover', 'onHover', 'onMove']);
         clearEvents();
 
         /* Rotate the cursor away. We should get unhover */
@@ -138,9 +130,8 @@ describe('Cursor', function () {
         cursor.update();
         expect(cursor.hoveringObject).to.be.null;
 
-        expect(targetEvents.length).to.equal(0);
-        expect(globalEvents.length).to.equal(1);
-        expect(globalEvents[0].name).to.equal('onUnhover');
+        expect(targetEvents).to.deep.equal([]);
+        expect(globalEvents).to.deep.equal(['onUnhover']);
         clearEvents();
     });
 });
