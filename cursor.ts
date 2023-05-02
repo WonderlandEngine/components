@@ -72,6 +72,8 @@ export class Cursor extends Component {
     private _lastIsDown = false;
     private _arTouchDown = false;
 
+    private _lastPointerPos = new Float32Array(2);
+
     private _lastCursorPosOnTarget = new Float32Array(3);
     private _cursorRayScale = new Float32Array(3);
 
@@ -226,17 +228,6 @@ export class Cursor extends Component {
         }
 
         this._onViewportResize();
-
-        /* Set initial origin and direction */
-        this.object.getTranslationWorld(this._origin);
-        this.object.getForward(this._direction);
-
-        if (this.cursorRayObject) {
-            this._cursorRayScale.set(this.cursorRayObject.scalingLocal);
-
-            /* Set ray to a good default distance of the cursor of 1m */
-            this._setCursorRayTransform(vec3.add(tempVec, this._origin, this._direction));
-        }
     }
 
     _setCursorRayTransform(hitPosition: vec3) {
@@ -256,10 +247,9 @@ export class Cursor extends Component {
         if (!this.cursorObject) return;
 
         if (visible) {
-            this.cursorObject.resetScaling();
-            this.cursorObject.scale(this._cursorObjScale);
+            this.cursorObject.setScalingWorld(this._cursorObjScale);
         } else {
-            this._cursorObjScale.set(this.cursorObject.scalingLocal);
+            this.cursorObject.getScalingLocal(this._cursorObjScale);
             this.cursorObject.scale([0, 0, 0]);
         }
     }
@@ -279,10 +269,11 @@ export class Cursor extends Component {
             this._direction[0] = p[0];
             this._direction[1] = -p[1];
             this._direction[2] = -1.0;
+            this.applyTransformToDirection();
+        } else if (this._viewComponent) {
+            /* Apply potentially changed transform to last stored pointer
+             * position */
             this.updateDirection();
-        } else {
-            this.object.getTranslationWorld(this._origin);
-            this.object.getForwardWorld(this._direction);
         }
 
         this.rayCast(null, this.engine.xr?.frame);
@@ -375,25 +366,17 @@ export class Cursor extends Component {
         /* onMove */
         if (hit) {
             if (this.hoveringObject) {
-                this.hoveringObject.toLocalSpaceTransform(tempVec, this.cursorPos);
+                this.hoveringObject.transformPointInverseWorld(tempVec, this.cursorPos);
             } else {
                 tempVec.set(this.cursorPos);
             }
 
-            if (
-                this._lastCursorPosOnTarget[0] != tempVec[0] ||
-                this._lastCursorPosOnTarget[1] != tempVec[1] ||
-                this._lastCursorPosOnTarget[2] != tempVec[2]
-            ) {
+            if (!vec3.equals(this._lastCursorPosOnTarget, tempVec)) {
                 this.notify('onMove', originalEvent);
                 this._lastCursorPosOnTarget.set(tempVec);
             }
         } else if (this.hoveringReality) {
-            if (
-                this._lastCursorPosOnTarget[0] != this.cursorPos[0] ||
-                this._lastCursorPosOnTarget[1] != this.cursorPos[1] ||
-                this._lastCursorPosOnTarget[2] != this.cursorPos[2]
-            ) {
+            if (!vec3.equals(this._lastCursorPosOnTarget, this.cursorPos)) {
                 this.hitTestTarget.onMove.notify(
                     hitTestResult,
                     this,
@@ -401,6 +384,8 @@ export class Cursor extends Component {
                 );
                 this._lastCursorPosOnTarget.set(this.cursorPos);
             }
+        } else {
+            this._lastCursorPosOnTarget.set(this.cursorPos);
         }
 
         this._lastIsDown = this._isDown;
@@ -515,23 +500,31 @@ export class Cursor extends Component {
      * @returns @ref WL.RayHit for new position.
      */
     private updateMousePos(e: PointerEvent | MouseEvent) {
-        const bounds = this.engine.canvas!.getBoundingClientRect();
-        /* Get direction in normalized device coordinate space from mouse position */
-        const left = e.clientX / bounds.width;
-        const top = e.clientY / bounds.height;
-        this._direction[0] = left * 2 - 1;
-        this._direction[1] = -top * 2 + 1;
-        this._direction[2] = -1.0;
+        this._lastPointerPos[0] = e.clientX;
+        this._lastPointerPos[1] = e.clientY;
+
         this.updateDirection();
     }
 
     private updateDirection() {
-        this.object.getTranslationWorld(this._origin);
+        const bounds = this.engine.canvas!.getBoundingClientRect();
+        /* Get direction in normalized device coordinate space from mouse position */
+        const left = this._lastPointerPos[0] / bounds.width;
+        const top = this._lastPointerPos[1] / bounds.height;
+        this._direction[0] = left * 2 - 1;
+        this._direction[1] = -top * 2 + 1;
+        this._direction[2] = -1.0;
 
+        this.applyTransformToDirection();
+    }
+
+    private applyTransformToDirection() {
         /* Reverse-project the direction into view space */
         vec3.transformMat4(this._direction, this._direction, this._projectionMatrix);
         vec3.normalize(this._direction, this._direction);
         vec3.transformQuat(this._direction, this._direction, this.object.transformWorld);
+
+        this.object.getTranslationWorld(this._origin);
     }
 
     private rayCast(
