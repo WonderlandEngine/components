@@ -264,10 +264,17 @@ export class Cursor extends Component {
             this.engine.xr.session.inputSources[0].handedness === 'none' &&
             this.engine.xr.session.inputSources[0].gamepad
         ) {
+            /* WebXR AR input */
             const p = this.engine.xr.session.inputSources[0].gamepad.axes;
             /* Screenspace Y is inverted */
             this._direction[0] = p[0];
             this._direction[1] = -p[1];
+            this._direction[2] = -1.0;
+            this.applyTransformAndProjectDirection();
+        } else if (this.engine.xr && this._input && this._input.xrInputSource) {
+            /* WebXR VR input */
+            this._direction[0] = 0;
+            this._direction[1] = 0;
             this._direction[2] = -1.0;
             this.applyTransformToDirection();
         } else if (this._viewComponent) {
@@ -515,13 +522,17 @@ export class Cursor extends Component {
         this._direction[1] = -top * 2 + 1;
         this._direction[2] = -1.0;
 
+        this.applyTransformAndProjectDirection();
+    }
+
+    private applyTransformAndProjectDirection() {
+        /* Reverse-project the direction into view space */
+        vec3.transformMat4(this._direction, this._direction, this._projectionMatrix);
+        vec3.normalize(this._direction, this._direction);
         this.applyTransformToDirection();
     }
 
     private applyTransformToDirection() {
-        /* Reverse-project the direction into view space */
-        vec3.transformMat4(this._direction, this._direction, this._projectionMatrix);
-        vec3.normalize(this._direction, this._direction);
         vec3.transformQuat(this._direction, this._direction, this.object.transformWorld);
 
         this.object.getTranslationWorld(this._origin);
