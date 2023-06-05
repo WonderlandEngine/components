@@ -1,5 +1,8 @@
 import {vec3} from 'gl-matrix';
 import {Component, Type} from '@wonderlandengine/api';
+
+const _direction = new Float32Array(3);
+
 /**
  * Basic movement with W/A/S/D keys.
  */
@@ -9,7 +12,7 @@ export class WasdControlsComponent extends Component {
         /** Movement speed in m/s. */
         speed: {type: Type.Float, default: 0.1},
         /** Flag for only moving the object on the global x & z planes */
-        alignedToFloor: {type: Type.Bool, default: false},
+        lockHeight: {type: Type.Bool, default: false},
         /** Object of which the orientation is used to determine forward direction */
         headObject: {type: Type.Object},
     };
@@ -20,9 +23,6 @@ export class WasdControlsComponent extends Component {
         this.down = false;
         this.left = false;
 
-        this.zero = [0, 0, 0]
-        this.direction = new Float32Array(3);
-
         window.addEventListener('keydown', this.press.bind(this));
         window.addEventListener('keyup', this.release.bind(this));
     }
@@ -32,25 +32,25 @@ export class WasdControlsComponent extends Component {
     }
 
     update() {
-        this.direction.set(this.zero);
+        vec3.zero(_direction);
 
-        if (this.up) this.direction[2] -= 1.0;
-        if (this.down) this.direction[2] += 1.0;
-        if (this.left) this.direction[0] -= 1.0;
-        if (this.right) this.direction[0] += 1.0;
+        if (this.up) _direction[2] -= 1.0;
+        if (this.down) _direction[2] += 1.0;
+        if (this.left) _direction[0] -= 1.0;
+        if (this.right) _direction[0] += 1.0;
 
-        vec3.normalize(this.direction, this.direction);
-        this.direction[0] *= this.speed;
-        this.direction[2] *= this.speed;
-        vec3.transformQuat(this.direction, this.direction, this.headObject.transformWorld);
+        vec3.normalize(_direction, _direction);
+        _direction[0] *= this.speed;
+        _direction[2] *= this.speed;
+        vec3.transformQuat(_direction, _direction, this.headObject.transformWorld);
 
-        if(this.alignedToFloor) {
-            this.direction[1] = 0;
-            vec3.normalize(this.direction, this.direction);
-            vec3.scale(this.direction, this.direction, this.speed);
+        if(this.lockHeight) {
+            _direction[1] = 0;
+            vec3.normalize(_direction, _direction);
+            vec3.scale(_direction, _direction, this.speed);
         }
 
-        this.object.translateLocal(this.direction);
+        this.object.translateLocal(_direction);
     }
 
     press(e) {
