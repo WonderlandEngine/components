@@ -8,6 +8,8 @@ export class WasdControlsComponent extends Component {
     static Properties = {
         /** Movement speed in m/s. */
         speed: {type: Type.Float, default: 0.1},
+        /** Flag for only moving the object on the global x & z planes */
+        alignedToFloor: {type: Type.Bool, default: false},
         /** Object of which the orientation is used to determine forward direction */
         headObject: {type: Type.Object},
     };
@@ -18,6 +20,9 @@ export class WasdControlsComponent extends Component {
         this.down = false;
         this.left = false;
 
+        this.zero = [0, 0, 0]
+        this.direction = new Float32Array(3);
+
         window.addEventListener('keydown', this.press.bind(this));
         window.addEventListener('keyup', this.release.bind(this));
     }
@@ -27,18 +32,25 @@ export class WasdControlsComponent extends Component {
     }
 
     update() {
-        let direction = [0, 0, 0];
+        this.direction.set(this.zero);
 
-        if (this.up) direction[2] -= 1.0;
-        if (this.down) direction[2] += 1.0;
-        if (this.left) direction[0] -= 1.0;
-        if (this.right) direction[0] += 1.0;
+        if (this.up) this.direction[2] -= 1.0;
+        if (this.down) this.direction[2] += 1.0;
+        if (this.left) this.direction[0] -= 1.0;
+        if (this.right) this.direction[0] += 1.0;
 
-        vec3.normalize(direction, direction);
-        direction[0] *= this.speed;
-        direction[2] *= this.speed;
-        vec3.transformQuat(direction, direction, this.headObject.transformWorld);
-        this.object.translate(direction);
+        vec3.normalize(this.direction, this.direction);
+        this.direction[0] *= this.speed;
+        this.direction[2] *= this.speed;
+        vec3.transformQuat(this.direction, this.direction, this.headObject.transformWorld);
+
+        if(this.alignedToFloor) {
+            this.direction[1] = 0;
+            vec3.normalize(this.direction, this.direction);
+            vec3.scale(this.direction, this.direction, this.speed);
+        }
+
+        this.object.translateLocal(this.direction);
     }
 
     press(e) {
