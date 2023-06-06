@@ -12,7 +12,7 @@ export class WasdControlsComponent extends Component {
         /** Movement speed in m/s. */
         speed: {type: Type.Float, default: 0.1},
         /** Flag for only moving the object on the global x & z planes */
-        lockHeight: {type: Type.Bool, default: false},
+        lockY: {type: Type.Bool, default: false},
         /** Object of which the orientation is used to determine forward direction */
         headObject: {type: Type.Object},
     };
@@ -44,7 +44,7 @@ export class WasdControlsComponent extends Component {
         _direction[2] *= this.speed;
         vec3.transformQuat(_direction, _direction, this.headObject.transformWorld);
 
-        if(this.lockHeight) {
+        if(this.lockY) {
             _direction[1] = 0;
             vec3.normalize(_direction, _direction);
             vec3.scale(_direction, _direction, this.speed);
