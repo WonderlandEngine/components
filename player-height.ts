@@ -1,4 +1,5 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component} from '@wonderlandengine/api';
+import {property} from '@wonderlandengine/api/decorators.js';
 
 /**
  * Set player height for a Y-offset above the ground for
@@ -6,13 +7,16 @@ import {Component, Type} from '@wonderlandengine/api';
  */
 export class PlayerHeight extends Component {
     static TypeName = 'player-height';
-    static Properties = {
-        height: {type: Type.Float, default: 1.75},
-    };
+
+    @property.float()
+    height: number = 1.75;
+
+    onSessionStartCallback!: () => void;
+    onSessionEndCallback!: () => void;
 
     start() {
-        this.object.resetTranslationRotation();
-        this.object.translate([0.0, this.height, 0.0]);
+        this.object.resetPositionRotation();
+        this.object.translateLocal([0.0, this.height, 0.0]);
 
         this.onSessionStartCallback = this.onXRSessionStart.bind(this);
         this.onSessionEndCallback = this.onXRSessionEnd.bind(this);
@@ -29,15 +33,15 @@ export class PlayerHeight extends Component {
     }
 
     onXRSessionStart() {
-        if (!['local', 'viewer'].includes(this.engine.xr.currentReferenceSpace)) {
-            this.object.resetTranslationRotation();
+        if (!['local', 'viewer'].includes(this.engine.xr?.currentReferenceSpaceType!)) {
+            this.object.resetPositionRotation();
         }
     }
 
     onXRSessionEnd() {
-        if (!['local', 'viewer'].includes(this.engine.xr.currentReferenceSpace)) {
-            this.object.resetTranslationRotation();
-            this.object.translate([0.0, this.height, 0.0]);
+        if (!['local', 'viewer'].includes(this.engine.xr?.currentReferenceSpaceType!)) {
+            this.object.resetPositionRotation();
+            this.object.translateLocal([0.0, this.height, 0.0]);
         }
     }
 }
