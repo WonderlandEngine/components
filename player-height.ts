@@ -8,7 +8,7 @@ import {property} from '@wonderlandengine/api/decorators.js';
 export class PlayerHeight extends Component {
     static TypeName = 'player-height';
 
-    @property.float()
+    @property.float(0.0)
     height: number = 1.75;
 
     onSessionStartCallback!: () => void;
@@ -33,13 +33,15 @@ export class PlayerHeight extends Component {
     }
 
     onXRSessionStart() {
-        if (!['local', 'viewer'].includes(this.engine.xr?.currentReferenceSpaceType!)) {
+        const type = this.engine.xr?.currentReferenceSpaceType;
+        if (type !== 'local' && type !== 'viewer') {
             this.object.resetPositionRotation();
         }
     }
 
     onXRSessionEnd() {
-        if (!['local', 'viewer'].includes(this.engine.xr?.currentReferenceSpaceType!)) {
+        const type = this.engine.xr?.currentReferenceSpaceType;
+        if (type !== 'local' && type !== 'viewer') {
             this.object.resetPositionRotation();
             this.object.translateLocal([0.0, this.height, 0.0]);
         }
