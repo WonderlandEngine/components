@@ -106,3 +106,5 @@ dist
 # Sublime text project files
 *.sublime-workspace
 *.sublime-project
+
+deploy
