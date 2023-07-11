@@ -8,7 +8,7 @@ import {property} from '@wonderlandengine/api/decorators.js';
 export class PlayerHeight extends Component {
     static TypeName = 'player-height';
 
-    @property.float(0.0)
+    @property.float(1.75)
     height: number = 1.75;
 
     onSessionStartCallback!: () => void;
