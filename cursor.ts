@@ -88,9 +88,6 @@ export class Cursor extends Component {
      */
     visible = true;
 
-    /** Maximum distance for the cursor's ray cast */
-    maxDistance = 100;
-
     /** Currently hovered object */
     hoveringObject: Object3D | null = null;
 
@@ -144,6 +141,10 @@ export class Cursor extends Component {
     /** Mode for raycasting, whether to use PhysX or simple collision components */
     @property.enum(['collision', 'physx'], 'collision')
     rayCastMode: number | string = 0;
+
+    /** Maximum distance for the cursor's ray cast. */
+    @property.float(100)
+    maxDistance: number = 100;
 
     /** Whether to set the CSS style of the mouse cursor on desktop */
     @property.bool(true)
@@ -557,6 +558,9 @@ export class Cursor extends Component {
                       this.maxDistance
                   );
 
+        if (this.rayCastMode == 0 && rayHit.hitCount > 0 && rayHit.distances[0] > this.maxDistance) {
+            rayHit.hitCount = 0;
+        }
         let hitResultDistance = Infinity;
         let hitTestResult = null;
         if (this._hitTestLocation?.visible) {
