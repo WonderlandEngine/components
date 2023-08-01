@@ -558,9 +558,6 @@ export class Cursor extends Component {
                       this.maxDistance
                   );
 
-        if (this.rayCastMode == 0 && rayHit.hitCount > 0 && rayHit.distances[0] > this.maxDistance) {
-            rayHit.hitCount = 0;
-        }
         let hitResultDistance = Infinity;
         let hitTestResult = null;
         if (this._hitTestLocation?.visible) {
