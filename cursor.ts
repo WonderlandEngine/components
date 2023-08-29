@@ -250,8 +250,8 @@ export class Cursor extends Component {
         if (visible) {
             this.cursorObject.setScalingWorld(this._cursorObjScale);
         } else {
-            this.cursorObject.getScalingLocal(this._cursorObjScale);
-            this.cursorObject.scale([0, 0, 0]);
+            this.cursorObject.getScalingWorld(this._cursorObjScale);
+            this.cursorObject.scaleLocal([0, 0, 0]);
         }
     }
 
