@@ -1,4 +1,5 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component} from '@wonderlandengine/api';
+import {property} from '@wonderlandengine/api/decorators.js';
 import {vec3} from 'gl-matrix';
 
 /**
@@ -9,27 +10,32 @@ import {vec3} from 'gl-matrix';
  */
 export class MouseLookComponent extends Component {
     static TypeName = 'mouse-look';
-    static Properties = {
-        /** Mouse look sensitivity */
-        sensitity: {type: Type.Float, default: 0.25},
-        /** Require a mouse button to be pressed to control view.
-         * Otherwise view will allways follow mouse movement */
-        requireMouseDown: {type: Type.Bool, default: true},
-        /** If "moveOnClick" is enabled, mouse button which should
-         * be held down to control view */
-        mouseButtonIndex: {type: Type.Int},
-        /** Enables pointer lock on "mousedown" event on canvas */
-        pointerLockOnClick: {type: Type.Bool, default: false},
-    };
 
-    init() {
-        this.currentRotationY = 0;
-        this.currentRotationX = 0;
-        this.origin = new Float32Array(3);
-        this.parentOrigin = new Float32Array(3);
-        this.rotationX = 0;
-        this.rotationY = 0;
-    }
+    /** Mouse look sensitivity */
+    @property.float(0.25)
+    sensitity = 0.25;
+
+    /** Require a mouse button to be pressed to control view.
+     * Otherwise view will allways follow mouse movement */
+    @property.bool(true)
+    requireMouseDown = true;
+
+    /** If "moveOnClick" is enabled, mouse button which should
+     * be held down to control view */
+    @property.int()
+    mouseButtonIndex = 0;
+
+    /** Enables pointer lock on "mousedown" event on canvas */
+    @property.bool(false)
+    pointerLockOnClick = false;
+
+    private currentRotationY = 0;
+    private currentRotationX = 0;
+    private origin = new Float32Array(3);
+    private parentOrigin = new Float32Array(3);
+    private rotationX = 0;
+    private rotationY = 0;
+    private mouseDown = false;
 
     start() {
         document.addEventListener('mousemove', (e) => {
@@ -44,18 +50,18 @@ export class MouseLookComponent extends Component {
                 this.currentRotationX = Math.min(1.507, this.currentRotationX);
                 this.currentRotationX = Math.max(-1.507, this.currentRotationX);
 
-                this.object.getTranslationWorld(this.origin);
+                this.object.getPositionWorld(this.origin);
 
                 const parent = this.object.parent;
                 if (parent !== null) {
-                    parent.getTranslationWorld(this.parentOrigin);
+                    parent.getPositionWorld(this.parentOrigin);
                     vec3.sub(this.origin, this.origin, this.parentOrigin);
                 }
 
-                this.object.resetTranslationRotation();
-                this.object.rotateAxisAngleRad([1, 0, 0], this.currentRotationX);
-                this.object.rotateAxisAngleRad([0, 1, 0], this.currentRotationY);
-                this.object.translate(this.origin);
+                this.object.resetPositionRotation();
+                this.object.rotateAxisAngleRadLocal([1, 0, 0], this.currentRotationX);
+                this.object.rotateAxisAngleRadLocal([0, 1, 0], this.currentRotationY);
+                this.object.translateLocal(this.origin);
             }
         });
 
@@ -64,8 +70,8 @@ export class MouseLookComponent extends Component {
             canvas.addEventListener('mousedown', () => {
                 canvas.requestPointerLock =
                     canvas.requestPointerLock ||
-                    canvas.mozRequestPointerLock ||
-                    canvas.webkitRequestPointerLock;
+                    (canvas as any).mozRequestPointerLock ||
+                    (canvas as any).webkitRequestPointerLock;
                 canvas.requestPointerLock();
             });
         }
