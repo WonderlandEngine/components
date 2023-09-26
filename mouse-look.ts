@@ -2,7 +2,7 @@ import {Component} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {vec3} from 'gl-matrix';
 
-const preventDefault = (e: any) => { e.preventDefault(); };
+const preventDefault = (e: Event) => { e.preventDefault(); };
 
 /**
  * Controls the camera orientation through mouse movement.
@@ -48,7 +48,7 @@ export class MouseLookComponent extends Component {
         }
 
         if (this.requireMouseDown) {
-            if (this.mouseButtonIndex == 2) {
+            if (this.mouseButtonIndex === 2) {
                 canvas.addEventListener('contextmenu', preventDefault, false);
             }
             canvas.addEventListener('mousedown', this.onMouseDown);
@@ -65,7 +65,7 @@ export class MouseLookComponent extends Component {
         }
 
         if (this.requireMouseDown) {
-            if (this.mouseButtonIndex == 2) {
+            if (this.mouseButtonIndex === 2) {
                 canvas.removeEventListener('contextmenu', preventDefault, false);
             }
             canvas.removeEventListener('mousedown', this.onMouseDown);
@@ -83,10 +83,10 @@ export class MouseLookComponent extends Component {
     }
 
     onMouseDown = (e: MouseEvent) => {
-        if (e.button == this.mouseButtonIndex) {
+        if (e.button === this.mouseButtonIndex) {
             this.mouseDown = true;
             document.body.style.cursor = 'grabbing';
-            if (e.button == 1) {
+            if (e.button === 1) {
                 e.preventDefault();
                 /* Prevent scrolling */
                 return false;
@@ -95,7 +95,7 @@ export class MouseLookComponent extends Component {
     }
 
     onMouseUp = (e: MouseEvent) => {
-        if (e.button == this.mouseButtonIndex) {
+        if (e.button === this.mouseButtonIndex) {
             this.mouseDown = false;
             document.body.style.cursor = 'initial';
         }
@@ -116,7 +116,7 @@ export class MouseLookComponent extends Component {
             this.object.getPositionWorld(this.origin);
 
             const parent = this.object.parent;
-            if (parent !== null) {
+            if (parent) {
                 parent.getPositionWorld(this.parentOrigin);
                 vec3.sub(this.origin, this.origin, this.parentOrigin);
             }
