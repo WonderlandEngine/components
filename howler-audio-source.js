@@ -28,27 +28,30 @@ export class HowlerAudioSource extends Component {
     };
 
     start() {
-        this.audio = new Howl({
-            src: [this.src],
-            loop: this.loop,
-            volume: this.volume,
-            autoplay: this.autoplay,
-        });
-
         this.lastPlayedAudioId = null;
         this.origin = new Float32Array(3);
         this.lastOrigin = new Float32Array(3);
 
-        if (this.spatial && this.autoplay) {
-            this.updatePosition();
-            this.play();
-        }
+        this.audio = new Howl({
+            src: [this.src],
+            loop: this.loop,
+            volume: this.volume,
+            autoplay: false,
+            onload:()=>{
+                if (this.spatial) {
+                    this.object.getPositionWorld(this.origin);
+                }
+                if (this.autoplay) {
+                    this.play();
+                }
+            }
+        });
     }
 
     update() {
         if (!this.spatial || !this.lastPlayedAudioId) return;
 
-        this.object.getTranslationWorld(this.origin);
+        this.object.getPositionWorld(this.origin);
         /* Only call pos() if the position moved more than half a centimeter
          * otherwise this gets very performance heavy.
          * Smaller movement should only be perceivable if close to the
