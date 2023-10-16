@@ -246,5 +246,11 @@ export class HandTracking extends Component {
 
     setupVREvents(s) {
         this.session = s;
+        for (let i = 0; i < s.inputSources.length; ++i) {
+            const source = s.inputSources[i];
+            if (!source.hand || !this.controllerToDeactivate) return;
+            this.controllerToDeactivate.active = false;
+            this.setChildrenActive(false, this.controllerToDeactivate);
+        }
     }
 }
