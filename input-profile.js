@@ -29,8 +29,7 @@ export class InputProfile extends Component {
     start() {
         this.controllerModel = null;
         this.toFilter = new Set(['vr-mode-active-mode-switch']);
-        this.defaultControllerComponents = [];
-        this.getComponents(this.defaultController);
+        this.defaultControllerComponents = this.getComponents(this.defaultController);
         this.handedness = hands[this.handednessIndex];
 
         if (this.engine.xr?.session != null) {
@@ -71,13 +70,25 @@ export class InputProfile extends Component {
 
     getComponents(obj) {
         if (obj == null) return;
-        const comps = obj.getComponents().filter((c) => !this.toFilter.has(c.type));
-        this.defaultControllerComponents = this.defaultControllerComponents.concat(comps);
 
-        let children = obj.children;
-        for (let i = 0; i < children.length; ++i) {
-            this.getComponents(children[i]);
+        const components = [];
+
+        const stack = [obj];
+
+        while (stack.length > 0) {
+            const currentObj = stack.pop();
+            const comps = currentObj
+                .getComponents()
+                .filter((c) => !this.toFilter.has(c.type));
+            components.push(...comps);
+            const children = currentObj.children || [];
+            // Push children onto the stack in reverse order to maintain the correct order
+            for (let i = children.length - 1; i >= 0; --i) {
+                stack.push(children[i]);
+            }
         }
+
+        return components;
     }
 
     setComponentsActive(active) {
