@@ -1,6 +1,7 @@
-import {Component, Property} from '@wonderlandengine/api';
-import {HandTracking} from '@wonderlandengine/components';
+import {Component, Object3D} from '@wonderlandengine/api';
+import {HandTracking} from './hand-tracking.js';
 import {vec3, quat} from 'gl-matrix';
+import {property} from '@wonderlandengine/api/decorators.js';
 
 const _TempVec = vec3.create();
 const _TempQuat = quat.create();
@@ -10,20 +11,39 @@ const hands = ['left', 'right'];
 
 export class InputProfile extends Component {
     static TypeName = 'input-profile';
-    static Properties = {
-        defaultController: Property.object(),
-        handednessIndex: Property.enum(hands, 0),
-        path: Property.string(
-            'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@latest/dist/profiles/'
-        ),
-        customProfileFolder: Property.string(''),
-        mapToDefaultController: Property.bool(false),
-        trackedHand: Property.object(),
-    };
+
+    private _gamepadObjects: Record<string, any> = {};
+    private controllerModel: any;
+    private toFilter: Set<string> = new Set(['vr-mode-active-mode-switch']);
+    private defaultControllerComponents?: Component[];
+    private handedness!: string;
+    private url!: string;
+    private ProfileJSON: any;
+    private modelLoaded!: boolean;
+    private gamepad: any;
+
+    @property.object()
+    defaultController!: Object3D;
+
+    @property.enum(hands, 0)
+    handednessIndex: number = 0;
+
+    @property.string(
+        'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@latest/dist/profiles/'
+    )
+    path!: string;
+
+    @property.string()
+    customProfileFolder!: string;
+
+    @property.bool(false)
+    mapToDefaultController!: boolean;
+
+    @property.object()
+    trackedHand!: Object3D;
 
     init() {
         this._gamepadObjects = {};
-        this._modelLoaded = false;
     }
 
     start() {
@@ -33,18 +53,26 @@ export class InputProfile extends Component {
         this.handedness = hands[this.handednessIndex];
 
         if (this.engine.xr?.session != null) {
-            this.engine.xr.session.addEventListener(
+            this.engine.xr?.session.addEventListener(
                 'inputsourceschange',
                 this.onInputSourcesChange.bind(this)
             );
         } else {
             this.engine.onXRSessionStart.add(() => {
-                this.engine.xr.session.addEventListener(
+                this.engine.xr?.session.addEventListener(
                     'inputsourceschange',
                     this.onInputSourcesChange.bind(this)
                 );
             });
         }
+    }
+
+    addToFilter(element: string) {
+        this.toFilter.add(element);
+    }
+
+    removeFromFilter(element: string) {
+        this.toFilter.delete(element);
     }
 
     onDeactivate() {
@@ -55,7 +83,7 @@ export class InputProfile extends Component {
             );
         } else {
             this.engine.onXRSessionStart.add(() => {
-                this.engine.xr.session.removeEventListener(
+                this.engine.xr?.session.removeEventListener(
                     'inputsourceschange',
                     this.onInputSourcesChange.bind(this)
                 );
@@ -63,15 +91,16 @@ export class InputProfile extends Component {
         }
     }
 
-    setHandTrackingControllers(controllerObject) {
+    setHandTrackingControllers(controllerObject: any) {
+        /**@ts-ignore**/
         this.trackedHand.getComponent(HandTracking).controllerToDeactivate =
             controllerObject;
     }
 
-    getComponents(obj) {
+    getComponents(obj: any) {
         if (obj == null) return;
 
-        const components = [];
+        const components: Component[] = [];
 
         const stack = [obj];
 
@@ -79,7 +108,7 @@ export class InputProfile extends Component {
             const currentObj = stack.pop();
             const comps = currentObj
                 .getComponents()
-                .filter((c) => !this.toFilter.has(c.type));
+                .filter((c: any) => !this.toFilter.has(c.type));
             components.push(...comps);
             const children = currentObj.children || [];
             // Push children onto the stack in reverse order to maintain the correct order
@@ -91,23 +120,24 @@ export class InputProfile extends Component {
         return components;
     }
 
-    setComponentsActive(active) {
+    setComponentsActive(active: boolean) {
         const comps = this.defaultControllerComponents;
+        if (!comps) return;
         for (let i = 0; i < comps.length; ++i) {
             comps[i].active = active;
         }
     }
 
-    onInputSourcesChange(event) {
+    onInputSourcesChange(event: any) {
         if (this.modelLoaded && !this.mapToDefaultController) {
             this.setComponentsActive(false);
         }
 
-        event.added.forEach((xrInputSource) => {
+        event.added.forEach((xrInputSource: any) => {
             if (xrInputSource.hand != null) return;
             if (this.handedness === xrInputSource.handedness) {
                 var profile = this.path + xrInputSource.profiles[0];
-                if (this.customProfileFolder != '') {
+                if (this.customProfileFolder !== '') {
                     profile = this.customProfileFolder;
                 }
 
@@ -118,6 +148,7 @@ export class InputProfile extends Component {
                     .then((res) => res.json())
                     .then((out) => {
                         this.ProfileJSON = out;
+                        console.log(this.ProfileJSON);
                         const consoleText = this.modelLoaded
                             ? 'Profile loaded' + this.url
                             : 'Reloaded Profile for gamepad mapping ';
@@ -131,11 +162,12 @@ export class InputProfile extends Component {
             }
         });
     }
+
     isModelLoaded() {
-        return this.controllerObject !== null;
+        return this.controllerModel !== null;
     }
 
-    loadGamepad(profile, xrInputSource) {
+    loadGamepad(profile: string, xrInputSource: any) {
         this.gamepad = xrInputSource.gamepad;
 
         const assetPath = profile + '/' + this.handedness + '.glb';
@@ -146,7 +178,7 @@ export class InputProfile extends Component {
         if (!this.mapToDefaultController) {
             this.engine.scene
                 .append(assetPath)
-                .then((obj) => {
+                .then((obj: any) => {
                     this.controllerModel = obj;
                     this.setComponentsActive(false);
                     console.log('setting comp false ');
@@ -176,7 +208,7 @@ export class InputProfile extends Component {
         }
     }
 
-    getGamepadObjectsFromProfile(profile, obj) {
+    getGamepadObjectsFromProfile(profile: any, obj: any) {
         const components = profile.layouts[this.handedness].components;
         if (!components) return;
 
@@ -199,7 +231,7 @@ export class InputProfile extends Component {
         }
     }
 
-    getGamepadObjectByName(obj, name) {
+    getGamepadObjectByName(obj: any, name: string) {
         if (!obj || !name) return;
 
         if (obj.name === name) this._gamepadObjects[name] = obj;
@@ -209,7 +241,7 @@ export class InputProfile extends Component {
             this.getGamepadObjectByName(children[i], name);
     }
 
-    assignTransform(target, min, max, value) {
+    assignTransform(target: any, min: any, max: any, value: number) {
         vec3.lerp(
             _TempVec,
             min.getPositionWorld(minTemp),
@@ -251,7 +283,7 @@ export class InputProfile extends Component {
         }
     }
 
-    getGamepadValue(component, visualResponse) {
+    getGamepadValue(component: any, visualResponse: any) {
         if (visualResponse.valueNodeProperty === 'transform') {
             switch (component.type) {
                 case 'button':
