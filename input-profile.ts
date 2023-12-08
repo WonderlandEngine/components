@@ -9,6 +9,13 @@ const minTemp = new Float32Array(3);
 const maxTemp = new Float32Array(3);
 const hands = ['left', 'right'];
 
+interface VisualResponse {
+    target: Object3D;
+    min: Object3D;
+    max: Object3D;
+    id: string;
+}
+
 export class InputProfile extends Component {
     static TypeName = 'input-profile';
 
@@ -21,6 +28,9 @@ export class InputProfile extends Component {
     private ProfileJSON: any;
     private modelLoaded!: boolean;
     private gamepad: any;
+
+    _buttons: VisualResponse[] = []; /* Any button, **EVEN** thumbstick click */
+    _axes: VisualResponse[] = [];
 
     @property.object()
     defaultController!: Object3D;
@@ -92,18 +102,16 @@ export class InputProfile extends Component {
     }
 
     setHandTrackingControllers(controllerObject: any) {
+        const HandtrackingComponent = this.trackedHand.getComponent(HandTracking);
+        if (!HandtrackingComponent) return;
         /**@ts-ignore**/
-        this.trackedHand.getComponent(HandTracking).controllerToDeactivate =
-            controllerObject;
+        HandtrackingComponent.controllerToDeactivate = controllerObject;
     }
 
     getComponents(obj: any) {
         if (obj == null) return;
-
         const components: Component[] = [];
-
         const stack = [obj];
-
         while (stack.length > 0) {
             const currentObj = stack.pop();
             const comps = currentObj
@@ -116,7 +124,6 @@ export class InputProfile extends Component {
                 stack.push(children[i]);
             }
         }
-
         return components;
     }
 
@@ -176,6 +183,7 @@ export class InputProfile extends Component {
         console.log(this.mapToDefaultController);
 
         if (!this.mapToDefaultController) {
+            /** load 3d model in the runtime with profile url */
             this.engine.scene
                 .append(assetPath)
                 .then((obj: any) => {
@@ -213,19 +221,36 @@ export class InputProfile extends Component {
         if (!components) return;
 
         for (const i in components) {
-            if (components.hasOwnProperty(i)) {
-                const visualResponses = components[i].visualResponses;
+            const visualResponses = components[i].visualResponses;
 
-                for (const j in visualResponses) {
-                    if (visualResponses.hasOwnProperty(j)) {
-                        const valueNode = visualResponses[j].valueNodeName;
-                        const minNode = visualResponses[j].minNodeName;
-                        const maxNode = visualResponses[j].maxNodeName;
+            for (const j in visualResponses) {
+                // update buttons with new interface of current visual response
+                const visualResponse = visualResponses[j];
+                const valueNode = visualResponse.valueNodeName;
+                const minNode = visualResponse.minNodeName;
+                const maxNode = visualResponse.maxNodeName;
 
-                        this.getGamepadObjectByName(obj, valueNode);
-                        this.getGamepadObjectByName(obj, minNode);
-                        this.getGamepadObjectByName(obj, maxNode);
-                    }
+                this.getGamepadObjectByName(obj, valueNode);
+                this.getGamepadObjectByName(obj, minNode);
+                this.getGamepadObjectByName(obj, maxNode);
+
+                let indice = visualResponses[j].componentProperty;
+                const response: VisualResponse = {
+                    target: this._gamepadObjects[valueNode],
+                    min: this._gamepadObjects[minNode],
+                    max: this._gamepadObjects[maxNode],
+                    id: components[i].gamepadIndices[indice], // Assign a unique ID
+                };
+                switch (indice) {
+                    case 'button':
+                        this._buttons.push(response);
+                        break;
+                    case 'xAxis':
+                        this._axes.push(response);
+                        break;
+                    case 'yAxis':
+                        this._axes.push(response);
+                        break;
                 }
             }
         }
@@ -252,60 +277,18 @@ export class InputProfile extends Component {
 
         quat.lerp(_TempQuat, min.rotationWorld, max.rotationWorld, value);
         quat.normalize(_TempQuat, _TempQuat);
-        target.rotationWorld = _TempQuat;
+        target.setRotationWorld(_TempQuat);
     }
 
     mapGamepadInput() {
-        const components = this.ProfileJSON.layouts[this.handedness].components;
-        if (!components) return;
-
-        for (const i in components) {
-            if (components.hasOwnProperty(i)) {
-                const component = components[i];
-                const visualResponses = component.visualResponses;
-
-                for (const j in visualResponses) {
-                    if (visualResponses.hasOwnProperty) {
-                        const visualResponse = visualResponses[j];
-                        const target = this._gamepadObjects[visualResponse.valueNodeName];
-                        const min = this._gamepadObjects[visualResponse.minNodeName];
-                        const max = this._gamepadObjects[visualResponse.maxNodeName];
-
-                        this.assignTransform(
-                            target,
-                            min,
-                            max,
-                            this.getGamepadValue(component, visualResponse)
-                        );
-                    }
-                }
-            }
+        for (const button of this._buttons) {
+            const ButtonValue = this.gamepad.buttons[button.id].value;
+            this.assignTransform(button.target, button.min, button.max, ButtonValue);
         }
-    }
-
-    getGamepadValue(component: any, visualResponse: any) {
-        if (visualResponse.valueNodeProperty === 'transform') {
-            switch (component.type) {
-                case 'button':
-                    return this.gamepad.buttons[component.gamepadIndices.button].pressed;
-
-                case 'thumbstick':
-                    if (visualResponse.componentProperty === 'button') {
-                        return this.gamepad.buttons[component.gamepadIndices.button]
-                            .pressed;
-                    } else if (visualResponse.componentProperty === 'xAxis') {
-                        return (this.gamepad.axes[component.gamepadIndices.xAxis] + 1) / 2;
-                    } else if (visualResponse.componentProperty === 'yAxis') {
-                        return (this.gamepad.axes[component.gamepadIndices.yAxis] + 1) / 2;
-                    } else {
-                        console.log('unidentified componentProperty');
-                    }
-                case 'trigger':
-                    return this.gamepad.buttons[component.gamepadIndices.button].value;
-
-                case 'squeeze':
-                    return this.gamepad.buttons[component.gamepadIndices.button].value;
-            }
+        for (const axis of this._axes) {
+            const AxisValue = this.gamepad.axes[axis.id] || 0;
+            const normalizedAxisValue = (AxisValue + 1) / 2;
+            this.assignTransform(axis.target, axis.min, axis.max, normalizedAxisValue);
         }
     }
 }
