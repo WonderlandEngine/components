@@ -1,5 +1,5 @@
 import {Component, Object3D} from '@wonderlandengine/api';
-import {HandTracking} from './hand-tracking.js';
+import {HandTracking} from '@wonderlandengine/components';
 import {vec3, quat} from 'gl-matrix';
 import {property} from '@wonderlandengine/api/decorators.js';
 
@@ -25,7 +25,7 @@ export class InputProfile extends Component {
     private defaultControllerComponents?: Component[];
     private handedness!: string;
     private url!: string;
-    private ProfileJSON: any;
+    private ProfileJSON: any = null;
     private modelLoaded!: boolean;
     private gamepad: any;
 
@@ -134,6 +134,34 @@ export class InputProfile extends Component {
             comps[i].active = active;
         }
     }
+    // Save data to cache
+    saveToCache(key, data) {
+        try {
+            // Convert data to JSON string before storing
+            const jsonString = JSON.stringify(data);
+
+            // Save to local storage
+            localStorage.setItem(key, jsonString);
+        } catch (error) {
+            console.error('Error saving to cache:', error);
+        }
+    }
+
+    // Retrieve data from cache
+    retrieveFromCache(key) {
+        try {
+            // Retrieve data from local storage
+            const jsonString = localStorage.getItem(key);
+
+            // Parse JSON string to get the original data
+            const data = JSON.parse(jsonString);
+
+            return data;
+        } catch (error) {
+            console.error('Error retrieving from cache:', error);
+            return null;
+        }
+    }
 
     onInputSourcesChange(event: any) {
         if (this.modelLoaded && !this.mapToDefaultController) {
@@ -142,28 +170,25 @@ export class InputProfile extends Component {
 
         event.added.forEach((xrInputSource: any) => {
             if (xrInputSource.hand != null) return;
-            if (this.handedness === xrInputSource.handedness) {
-                var profile = this.path + xrInputSource.profiles[0];
-                if (this.customProfileFolder !== '') {
-                    profile = this.customProfileFolder;
-                }
-
-                this.url = profile + '/profile.json';
-                console.log('url is ' + this.url);
-
+            if (this.handedness != xrInputSource.handedness) return;
+            var profile = this.path + xrInputSource.profiles[0];
+            if (this.customProfileFolder !== '') profile = this.customProfileFolder;
+            this.url = profile + '/profile.json';
+            this.ProfileJSON = this.retrieveFromCache(this.url);
+            if (this.ProfileJSON != null) {
+                console.log('Loaded Profile From Cache ');
+                this.loadAndMapGamepad(profile, xrInputSource);
+            } else {
                 fetch(this.url)
                     .then((res) => res.json())
                     .then((out) => {
                         this.ProfileJSON = out;
-                        console.log(this.ProfileJSON);
-                        const consoleText = this.modelLoaded
-                            ? 'Profile loaded' + this.url
-                            : 'Reloaded Profile for gamepad mapping ';
-                        console.log(consoleText);
-                        this.loadGamepad(profile, xrInputSource);
+                        console.log('Profile downloaded and loaded from ' + this.url);
+                        this.saveToCache(this.url, out);
+                        this.loadAndMapGamepad(profile, xrInputSource);
                     })
                     .catch((e) => {
-                        console.error('failed to load profile.json');
+                        console.error('failed to load profile from' + this.url);
                         console.error(e);
                     });
             }
@@ -174,13 +199,11 @@ export class InputProfile extends Component {
         return this.controllerModel !== null;
     }
 
-    loadGamepad(profile: string, xrInputSource: any) {
+    loadAndMapGamepad(profile: string, xrInputSource: any) {
         this.gamepad = xrInputSource.gamepad;
 
         const assetPath = profile + '/' + this.handedness + '.glb';
         if (this.modelLoaded) return;
-        console.log('flag value == ');
-        console.log(this.mapToDefaultController);
 
         if (!this.mapToDefaultController) {
             /** load 3d model in the runtime with profile url */
@@ -189,7 +212,7 @@ export class InputProfile extends Component {
                 .then((obj: any) => {
                     this.controllerModel = obj;
                     this.setComponentsActive(false);
-                    console.log('setting comp false ');
+                    console.log('Disabling ' + this.handedness + ' default Controller');
                     this.controllerModel.parent = this.object;
                     this.controllerModel.setTranslationLocal([0, 0, 0]);
                     this.getGamepadObjectsFromProfile(
@@ -199,18 +222,23 @@ export class InputProfile extends Component {
                     this.modelLoaded = this.isModelLoaded();
                     this.setHandTrackingControllers(this.controllerModel);
                     this.update = () => this.mapGamepadInput();
-                    console.log('model loaded to the scene');
+                    console.log(this.handedness + 'controller model loaded to the scene');
                 })
                 .catch((e) => {
                     console.error('failed to load 3d model');
                     console.error(e);
                     this.setComponentsActive(true);
-                    console.log('setting comp true');
+                    console.log(
+                        'Couldnot load i-p, continuing with ' +
+                            this.handedness +
+                            ' default controller'
+                    );
                 });
         } else {
             this.controllerModel = this.defaultController;
             this.getGamepadObjectsFromProfile(this.ProfileJSON, this.defaultController);
             this.modelLoaded = this.isModelLoaded();
+            console.log('mapping i-p to ' + this.handedness + ' default controllers');
             this.update = () => this.mapGamepadInput();
             this.setHandTrackingControllers(this.defaultController);
         }
