@@ -20,14 +20,14 @@ interface VisualResponse {
 
 export class InputProfile extends Component {
     static TypeName = 'input-profile';
-
+    static Cache: Map<string, any> = new Map();
     private _gamepadObjects: Record<string, Object3D> = {};
-    private _controllerModel: Object3D;
-    private _defaultControllerComponents?: Component[];
+    private _controllerModel: Object3D | null = null;
+    private _defaultControllerComponents: Component[] | undefined;
     private _handedness!: string;
-    private _ProfileJSON: object = null;
+    private _profileJSON: any = null;
     private _modelLoaded!: boolean;
-    private _gamepad: Gamepad;
+    private _gamepad: Gamepad | undefined;
     private _buttons: VisualResponse[] = [];
     private _axes: VisualResponse[] = [];
 
@@ -54,45 +54,28 @@ export class InputProfile extends Component {
     @property.object()
     trackedHand!: Object3D;
 
-    init() {
-        this._gamepadObjects = {};
-    }
-
     start() {
         this._controllerModel = null;
         this.toFilter = new Set(['vr-mode-active-mode-switch']);
         this._defaultControllerComponents = this.getComponents(this.defaultController);
         this._handedness = hands[this.handednessIndex];
 
-        if (this.engine.xr?.session != null) {
+        this.engine.onXRSessionStart.add(() => {
+            console.warn('adding event listener for inputChange');
             this.engine.xr?.session.addEventListener(
                 'inputsourceschange',
                 this.onInputSourcesChange.bind(this)
             );
-        } else {
-            this.engine.onXRSessionStart.add(() => {
-                this.engine.xr?.session.addEventListener(
-                    'inputsourceschange',
-                    this.onInputSourcesChange.bind(this)
-                );
-            });
-        }
+        });
     }
 
     onDeactivate() {
-        if (this.engine.xr?.session != null) {
-            this.engine.xr.session.removeEventListener(
+        this.engine.onXRSessionStart.add(() => {
+            this.engine.xr?.session.removeEventListener(
                 'inputsourceschange',
                 this.onInputSourcesChange.bind(this)
             );
-        } else {
-            this.engine.onXRSessionStart.add(() => {
-                this.engine.xr?.session.removeEventListener(
-                    'inputsourceschange',
-                    this.onInputSourcesChange.bind(this)
-                );
-            });
-        }
+        });
     }
 
     setHandTrackingControllers(controllerObject: Object3D) {
@@ -123,37 +106,9 @@ export class InputProfile extends Component {
 
     setComponentsActive(active: boolean) {
         const comps = this._defaultControllerComponents;
-        if (!comps) return;
+        if (comps == undefined) return;
         for (let i = 0; i < comps.length; ++i) {
             comps[i].active = active;
-        }
-    }
-    // Save data to cache
-    saveToCache(key, data) {
-        try {
-            // Convert data to JSON string before storing
-            const jsonString = JSON.stringify(data);
-
-            // Save to local storage
-            localStorage.setItem(key, jsonString);
-        } catch (error) {
-            console.error('Error saving to cache:', error);
-        }
-    }
-
-    // Retrieve data from cache
-    retrieveFromCache(key) {
-        try {
-            // Retrieve data from local storage
-            const jsonString = localStorage.getItem(key);
-
-            // Parse JSON string to get the original data
-            const data = JSON.parse(jsonString);
-
-            return data;
-        } catch (error) {
-            console.error('Error retrieving from cache:', error);
-            return null;
         }
     }
 
@@ -168,24 +123,24 @@ export class InputProfile extends Component {
             var profile = this.path + xrInputSource.profiles[0];
             if (this.customProfileFolder !== '') profile = this.customProfileFolder;
             this.url = profile + '/profile.json';
-            this._ProfileJSON = this.retrieveFromCache(this.url);
-            if (this._ProfileJSON != null) {
-                console.log('Loaded Profile From Cache ');
-                this.loadAndMapGamepad(profile, xrInputSource);
-            } else {
-                fetch(this.url)
-                    .then((res) => res.json())
-                    .then((out) => {
-                        this._ProfileJSON = out;
-                        console.log('Profile downloaded and loaded from ' + this.url);
-                        this.saveToCache(this.url, out);
-                        this.loadAndMapGamepad(profile, xrInputSource);
-                    })
-                    .catch((e) => {
-                        console.error('failed to load profile from' + this.url);
-                        console.error(e);
-                    });
-            }
+
+            this._profileJSON = InputProfile.Cache.has(this.url)
+                ? InputProfile.Cache.get(this.url)
+                : null;
+
+            if (this._profileJSON != null) return;
+            fetch(this.url)
+                .then((res) => res.json())
+                .then((out) => {
+                    this._profileJSON = out;
+                    console.log('Profile downloaded and loaded from ' + this.url);
+                    InputProfile.Cache.set(this.url, this._profileJSON);
+                    this.loadAndMapGamepad(profile, xrInputSource);
+                })
+                .catch((e) => {
+                    console.error('failed to load profile from' + this.url);
+                    console.error(e);
+                });
         });
     }
 
@@ -195,10 +150,7 @@ export class InputProfile extends Component {
 
     loadAndMapGamepad(profile: string, xrInputSource: XRInputSource) {
         this._gamepad = xrInputSource.gamepad;
-
         const assetPath = profile + '/' + this._handedness + '.glb';
-        if (this._modelLoaded) return;
-
         if (!this.mapToDefaultController) {
             /** load 3d model in the runtime with profile url */
             this.engine.scene
@@ -210,7 +162,7 @@ export class InputProfile extends Component {
                     this._controllerModel.parent = this.object;
                     this._controllerModel.setPositionLocal([0, 0, 0]);
                     this.getGamepadObjectsFromProfile(
-                        this._ProfileJSON,
+                        this._profileJSON,
                         this._controllerModel
                     );
                     this._modelLoaded = this.isModelLoaded();
@@ -230,7 +182,7 @@ export class InputProfile extends Component {
                 });
         } else {
             this._controllerModel = this.defaultController;
-            this.getGamepadObjectsFromProfile(this._ProfileJSON, this.defaultController);
+            this.getGamepadObjectsFromProfile(this._profileJSON, this.defaultController);
             this._modelLoaded = this.isModelLoaded();
             console.log('mapping i-p to ' + this._handedness + ' default controllers');
             this.update = () => this.mapGamepadInput();
@@ -238,7 +190,7 @@ export class InputProfile extends Component {
         }
     }
 
-    getGamepadObjectsFromProfile(profile: object, obj: Object3D) {
+    getGamepadObjectsFromProfile(profile: any, obj: Object3D) {
         const components = profile.layouts[this._handedness].components;
         if (!components) return;
 
@@ -308,11 +260,11 @@ export class InputProfile extends Component {
 
     mapGamepadInput() {
         for (const button of this._buttons) {
-            const ButtonValue = this._gamepad.buttons[button.id].value;
+            const ButtonValue = this._gamepad?.buttons[button.id].value || 0;
             this.assignTransform(button.target, button.min, button.max, ButtonValue);
         }
         for (const axis of this._axes) {
-            const AxisValue = this._gamepad.axes[axis.id] || 0;
+            const AxisValue = this._gamepad?.axes[axis.id] || 0;
             const normalizedAxisValue = (AxisValue + 1) / 2;
             this.assignTransform(axis.target, axis.min, axis.max, normalizedAxisValue);
         }
