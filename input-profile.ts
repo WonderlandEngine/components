@@ -2,6 +2,7 @@ import {Component, Object3D, Emitter} from '@wonderlandengine/api';
 import {HandTracking} from './hand-tracking.js';
 import {vec3, quat} from 'gl-matrix';
 import {property} from '@wonderlandengine/api/decorators.js';
+import {VrModeActiveSwitch} from './vr-mode-active-switch.js';
 
 const _TempVec = vec3.create();
 const _TempQuat = quat.create();
@@ -62,6 +63,9 @@ export class InputProfile extends Component {
     @property.object()
     trackedHand!: Object3D;
 
+    @property.bool(true)
+    addVrModeSwitch!: boolean;
+
     start() {
         this._controllerModel = null;
         this.toFilter = new Set(['vr-mode-active-mode-switch']);
@@ -78,7 +82,8 @@ export class InputProfile extends Component {
     }
 
     onDeactivate() {
-        this.engine.xr?.session.removeEventListener(
+        console.warn('Removing event listener for inputChange');
+        this.engine.xr?.session?.removeEventListener(
             'inputsourceschange',
             this.onInputSourcesChange.bind(this)
         );
@@ -119,6 +124,7 @@ export class InputProfile extends Component {
     }
 
     onInputSourcesChange(event: XRInputSourceChangeEvent) {
+        console.warn('input source change called ' + this._handedness);
         if (this.isModelLoaded() && !this.mapToDefaultController) {
             this._setComponentsActive(false);
         }
@@ -181,6 +187,8 @@ export class InputProfile extends Component {
             this._controllerModel.setPositionLocal([0, 0, 0]);
             console.log('Disabling ' + this._handedness + ' default Controller');
             console.log(this._handedness + 'controller model loaded to the scene');
+            if (this.addVrModeSwitch)
+                this._controllerModel.addComponent(VrModeActiveSwitch);
             this.notifyUrlReady();
         } else {
             console.log('mapping i-p to ' + this._handedness + ' default controllers');
