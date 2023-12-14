@@ -1,4 +1,4 @@
-import {Component, Object3D} from '@wonderlandengine/api';
+import {Component, Object3D, Emitter} from '@wonderlandengine/api';
 import {HandTracking} from './hand-tracking.js';
 import {vec3, quat} from 'gl-matrix';
 import {property} from '@wonderlandengine/api/decorators.js';
@@ -29,21 +29,14 @@ export class InputProfile extends Component {
     private _gamepad: Gamepad | undefined;
     private _buttons: VisualResponse[] = [];
     private _axes: VisualResponse[] = [];
-    private _registeredFlag: Boolean = false;
-    private _urlReadyCallbacks: (() => void)[] = [];
-
-    registerUrlReadyCallback(callback: () => void) {
-        this._urlReadyCallbacks.push(callback);
-
-        // Check if the model is already loaded and trigger the callback immediately
-        if (this.isModelLoaded()) {
-            this.notifyUrlReady();
-        }
-    }
+    private _urlEmitter: Emitter = new Emitter();
 
     private notifyUrlReady() {
-        this._urlReadyCallbacks.forEach((callback) => callback());
-        this._urlReadyCallbacks = []; // Clear the callbacks after notifying
+        this._urlEmitter.notify();
+    }
+
+    onUrlReady(callback: () => void) {
+        this._urlEmitter.add(callback);
     }
 
     url!: string;
@@ -81,16 +74,14 @@ export class InputProfile extends Component {
                 'inputsourceschange',
                 this.onInputSourcesChange.bind(this)
             );
-            this._registeredFlag = true;
         });
     }
 
     onDeactivate() {
-        if (this._registeredFlag)
-            this.engine.xr?.session.removeEventListener(
-                'inputsourceschange',
-                this.onInputSourcesChange.bind(this)
-            );
+        this.engine.xr?.session.removeEventListener(
+            'inputsourceschange',
+            this.onInputSourcesChange.bind(this)
+        );
     }
 
     setHandTrackingControllers(controllerObject: Object3D) {
@@ -269,12 +260,12 @@ export class InputProfile extends Component {
 
     mapGamepadInput() {
         for (const button of this._buttons) {
-            const ButtonValue = this._gamepad!.buttons[button.id].value;
-            this.assignTransform(button.target, button.min, button.max, ButtonValue);
+            const buttonValue = this._gamepad!.buttons[button.id].value;
+            this.assignTransform(button.target, button.min, button.max, buttonValue);
         }
         for (const axis of this._axes) {
-            const AxisValue = this._gamepad!.axes[axis.id];
-            const normalizedAxisValue = (AxisValue + 1) / 2;
+            const axisValue = this._gamepad!.axes[axis.id];
+            const normalizedAxisValue = (axisValue + 1) / 2;
             this.assignTransform(axis.target, axis.min, axis.max, normalizedAxisValue);
         }
     }
