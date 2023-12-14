@@ -26,10 +26,25 @@ export class InputProfile extends Component {
     private _defaultControllerComponents: Component[] | undefined;
     private _handedness!: string;
     private _profileJSON: any = null;
-    private _modelLoaded!: boolean;
     private _gamepad: Gamepad | undefined;
     private _buttons: VisualResponse[] = [];
     private _axes: VisualResponse[] = [];
+    private _registeredFlag: Boolean = false;
+    private _urlReadyCallbacks: (() => void)[] = [];
+
+    registerUrlReadyCallback(callback: () => void) {
+        this._urlReadyCallbacks.push(callback);
+
+        // Check if the model is already loaded and trigger the callback immediately
+        if (this.isModelLoaded()) {
+            this.notifyUrlReady();
+        }
+    }
+
+    private notifyUrlReady() {
+        this._urlReadyCallbacks.forEach((callback) => callback());
+        this._urlReadyCallbacks = []; // Clear the callbacks after notifying
+    }
 
     url!: string;
     toFilter: Set<string> = new Set(['vr-mode-active-mode-switch']);
@@ -66,23 +81,23 @@ export class InputProfile extends Component {
                 'inputsourceschange',
                 this.onInputSourcesChange.bind(this)
             );
+            this._registeredFlag = true;
         });
     }
 
     onDeactivate() {
-        this.engine.onXRSessionStart.add(() => {
+        if (this._registeredFlag)
             this.engine.xr?.session.removeEventListener(
                 'inputsourceschange',
                 this.onInputSourcesChange.bind(this)
             );
-        });
     }
 
     setHandTrackingControllers(controllerObject: Object3D) {
-        const HandtrackingComponent = this.trackedHand.getComponent(HandTracking);
-        if (!HandtrackingComponent) return;
-        /**@ts-ignore**/
-        HandtrackingComponent.controllerToDeactivate = controllerObject;
+        const handtrackingComponent = this.trackedHand.getComponent(HandTracking);
+        if (!handtrackingComponent) return;
+        /** @todo: Remove any when hand tracking is typed. */
+        (handtrackingComponent as any).controllerToDeactivate = controllerObject;
     }
 
     getComponents(obj: Object3D) {
@@ -104,7 +119,7 @@ export class InputProfile extends Component {
         return components;
     }
 
-    setComponentsActive(active: boolean) {
+    private _setComponentsActive(active: boolean) {
         const comps = this._defaultControllerComponents;
         if (comps == undefined) return;
         for (let i = 0; i < comps.length; ++i) {
@@ -113,15 +128,17 @@ export class InputProfile extends Component {
     }
 
     onInputSourcesChange(event: XRInputSourceChangeEvent) {
-        if (this._modelLoaded && !this.mapToDefaultController) {
-            this.setComponentsActive(false);
+        if (this.isModelLoaded() && !this.mapToDefaultController) {
+            this._setComponentsActive(false);
         }
 
         event.added.forEach((xrInputSource: XRInputSource) => {
             if (xrInputSource.hand != null) return;
             if (this._handedness != xrInputSource.handedness) return;
-            var profile = this.path + xrInputSource.profiles[0];
-            if (this.customProfileFolder !== '') profile = this.customProfileFolder;
+            const profile =
+                this.customProfileFolder !== ''
+                    ? this.customProfileFolder
+                    : this.path + xrInputSource.profiles[0];
             this.url = profile + '/profile.json';
 
             this._profileJSON = InputProfile.Cache.has(this.url)
@@ -148,46 +165,38 @@ export class InputProfile extends Component {
         return this._controllerModel !== null;
     }
 
-    loadAndMapGamepad(profile: string, xrInputSource: XRInputSource) {
+    async loadAndMapGamepad(profile: string, xrInputSource: XRInputSource) {
         this._gamepad = xrInputSource.gamepad;
         const assetPath = profile + '/' + this._handedness + '.glb';
+        this._controllerModel = this.defaultController;
         if (!this.mapToDefaultController) {
             /** load 3d model in the runtime with profile url */
-            this.engine.scene
-                .append(assetPath)
-                .then((obj: Object3D) => {
-                    this._controllerModel = obj;
-                    this.setComponentsActive(false);
-                    console.log('Disabling ' + this._handedness + ' default Controller');
-                    this._controllerModel.parent = this.object;
-                    this._controllerModel.setPositionLocal([0, 0, 0]);
-                    this.getGamepadObjectsFromProfile(
-                        this._profileJSON,
-                        this._controllerModel
-                    );
-                    this._modelLoaded = this.isModelLoaded();
-                    this.setHandTrackingControllers(this._controllerModel);
-                    this.update = () => this.mapGamepadInput();
-                    console.log(this._handedness + 'controller model loaded to the scene');
-                })
-                .catch((e) => {
-                    console.error('failed to load 3d model');
-                    console.error(e);
-                    this.setComponentsActive(true);
-                    console.log(
-                        'Couldnot load i-p, continuing with ' +
-                            this._handedness +
-                            ' default controller'
-                    );
-                });
+            try {
+                this._controllerModel = (await this.engine.scene.append(
+                    assetPath
+                )) as Object3D;
+            } catch (e) {
+                console.error('failed to load 3d model');
+                console.error(e);
+                this._setComponentsActive(true);
+                console.log(
+                    'Couldnot load i-p, continuing with ' +
+                        this._handedness +
+                        ' default controller'
+                );
+            }
+            this._setComponentsActive(false);
+            this._controllerModel.parent = this.object;
+            this._controllerModel.setPositionLocal([0, 0, 0]);
+            console.log('Disabling ' + this._handedness + ' default Controller');
+            console.log(this._handedness + 'controller model loaded to the scene');
+            this.notifyUrlReady();
         } else {
-            this._controllerModel = this.defaultController;
-            this.getGamepadObjectsFromProfile(this._profileJSON, this.defaultController);
-            this._modelLoaded = this.isModelLoaded();
             console.log('mapping i-p to ' + this._handedness + ' default controllers');
-            this.update = () => this.mapGamepadInput();
-            this.setHandTrackingControllers(this.defaultController);
         }
+        this.getGamepadObjectsFromProfile(this._profileJSON, this._controllerModel);
+        this.setHandTrackingControllers(this.defaultController);
+        this.update = () => this.mapGamepadInput();
     }
 
     getGamepadObjectsFromProfile(profile: any, obj: Object3D) {
@@ -260,11 +269,11 @@ export class InputProfile extends Component {
 
     mapGamepadInput() {
         for (const button of this._buttons) {
-            const ButtonValue = this._gamepad?.buttons[button.id].value || 0;
+            const ButtonValue = this._gamepad!.buttons[button.id].value;
             this.assignTransform(button.target, button.min, button.max, ButtonValue);
         }
         for (const axis of this._axes) {
-            const AxisValue = this._gamepad?.axes[axis.id] || 0;
+            const AxisValue = this._gamepad!.axes[axis.id];
             const normalizedAxisValue = (AxisValue + 1) / 2;
             this.assignTransform(axis.target, axis.min, axis.max, normalizedAxisValue);
         }
