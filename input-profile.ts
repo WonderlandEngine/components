@@ -30,15 +30,8 @@ export class InputProfile extends Component {
     private _gamepad: Gamepad | undefined;
     private _buttons: VisualResponse[] = [];
     private _axes: VisualResponse[] = [];
-    private _urlEmitter: Emitter = new Emitter();
 
-    private notifyUrlReady() {
-        this._urlEmitter.notify();
-    }
-
-    onUrlReady(callback: () => void) {
-        this._urlEmitter.add(callback);
-    }
+    urlEmitter: Emitter = new Emitter();
 
     url!: string;
     toFilter: Set<string> = new Set(['vr-mode-active-mode-switch']);
@@ -69,34 +62,32 @@ export class InputProfile extends Component {
     start() {
         this._controllerModel = null;
         this.toFilter = new Set(['vr-mode-active-mode-switch']);
-        this._defaultControllerComponents = this.getComponents(this.defaultController);
+        this._defaultControllerComponents = this._getComponents(this.defaultController);
         this._handedness = hands[this.handednessIndex];
 
         this.engine.onXRSessionStart.add(() => {
-            console.warn('adding event listener for inputChange');
             this.engine.xr?.session.addEventListener(
                 'inputsourceschange',
-                this.onInputSourcesChange.bind(this)
+                this._onInputSourcesChange.bind(this)
             );
         });
     }
 
     onDeactivate() {
-        console.warn('Removing event listener for inputChange');
         this.engine.xr?.session?.removeEventListener(
             'inputsourceschange',
-            this.onInputSourcesChange.bind(this)
+            this._onInputSourcesChange.bind(this)
         );
     }
 
-    setHandTrackingControllers(controllerObject: Object3D) {
+    private _setHandTrackingControllers(controllerObject: Object3D) {
         const handtrackingComponent = this.trackedHand.getComponent(HandTracking);
         if (!handtrackingComponent) return;
         /** @todo: Remove any when hand tracking is typed. */
         (handtrackingComponent as any).controllerToDeactivate = controllerObject;
     }
 
-    getComponents(obj: Object3D) {
+    private _getComponents(obj: Object3D) {
         if (obj == null) return;
         const components: Component[] = [];
         const stack = [obj];
@@ -123,15 +114,16 @@ export class InputProfile extends Component {
         }
     }
 
-    onInputSourcesChange(event: XRInputSourceChangeEvent) {
-        console.warn('input source change called ' + this._handedness);
-        if (this.isModelLoaded() && !this.mapToDefaultController) {
+    private _onInputSourcesChange(event: XRInputSourceChangeEvent) {
+        if (this._isModelLoaded() && !this.mapToDefaultController) {
             this._setComponentsActive(false);
         }
 
         event.added.forEach((xrInputSource: XRInputSource) => {
             if (xrInputSource.hand != null) return;
             if (this._handedness != xrInputSource.handedness) return;
+
+            this._gamepad = xrInputSource.gamepad;
             const profile =
                 this.customProfileFolder !== ''
                     ? this.customProfileFolder
@@ -149,7 +141,8 @@ export class InputProfile extends Component {
                     this._profileJSON = out;
                     console.log('Profile downloaded and loaded from ' + this.url);
                     InputProfile.Cache.set(this.url, this._profileJSON);
-                    this.loadAndMapGamepad(profile, xrInputSource);
+
+                    if (!this._isModelLoaded()) this._loadAndMapGamepad(profile);
                 })
                 .catch((e) => {
                     console.error('failed to load profile from' + this.url);
@@ -158,12 +151,11 @@ export class InputProfile extends Component {
         });
     }
 
-    isModelLoaded() {
+    private _isModelLoaded() {
         return this._controllerModel !== null;
     }
 
-    async loadAndMapGamepad(profile: string, xrInputSource: XRInputSource) {
-        this._gamepad = xrInputSource.gamepad;
+    private async _loadAndMapGamepad(profile: string) {
         const assetPath = profile + '/' + this._handedness + '.glb';
         this._controllerModel = this.defaultController;
         if (!this.mapToDefaultController) {
@@ -172,6 +164,7 @@ export class InputProfile extends Component {
                 this._controllerModel = (await this.engine.scene.append(
                     assetPath
                 )) as Object3D;
+                console.log(this._handedness + 'controller model loaded to the scene');
             } catch (e) {
                 console.error('failed to load 3d model');
                 console.error(e);
@@ -182,25 +175,28 @@ export class InputProfile extends Component {
                         ' default controller'
                 );
             }
-            this._setComponentsActive(false);
             this._controllerModel.parent = this.object;
             this._controllerModel.setPositionLocal([0, 0, 0]);
-            console.log('Disabling ' + this._handedness + ' default Controller');
-            console.log(this._handedness + 'controller model loaded to the scene');
+            this._setComponentsActive(false);
+            console.log('Disabled ' + this._handedness + ' default Controller');
+
             if (this.addVrModeSwitch)
                 this._controllerModel.addComponent(VrModeActiveSwitch);
-            this.notifyUrlReady();
+            this.urlEmitter.notify();
         } else {
             console.log('mapping i-p to ' + this._handedness + ' default controllers');
         }
-        this.getGamepadObjectsFromProfile(this._profileJSON, this._controllerModel);
-        this.setHandTrackingControllers(this.defaultController);
-        this.update = () => this.mapGamepadInput();
+        this._cacheGamepadObjectsFromProfile(this._profileJSON, this._controllerModel);
+        this._setHandTrackingControllers(this.defaultController);
+        this.update = () => this._mapGamepadInput();
     }
 
-    getGamepadObjectsFromProfile(profile: any, obj: Object3D) {
+    private _cacheGamepadObjectsFromProfile(profile: any, obj: Object3D) {
         const components = profile.layouts[this._handedness].components;
         if (!components) return;
+
+        this._buttons = [];
+        this._axes = [];
 
         for (const i in components) {
             const visualResponses = components[i].visualResponses;
@@ -212,9 +208,9 @@ export class InputProfile extends Component {
                 const minNode = visualResponse.minNodeName;
                 const maxNode = visualResponse.maxNodeName;
 
-                this.getGamepadObjectByName(obj, valueNode);
-                this.getGamepadObjectByName(obj, minNode);
-                this.getGamepadObjectByName(obj, maxNode);
+                this._gamepadObjects[valueNode] = this._getObjectByName(obj, valueNode);
+                this._gamepadObjects[minNode] = this._getObjectByName(obj, minNode);
+                this._gamepadObjects[maxNode] = this._getObjectByName(obj, maxNode);
 
                 let indice = visualResponses[j].componentProperty;
                 const response: VisualResponse = {
@@ -238,17 +234,18 @@ export class InputProfile extends Component {
         }
     }
 
-    getGamepadObjectByName(obj: Object3D, name: string) {
+    private _getObjectByName(obj: Object3D, name: string) {
         if (!obj || !name) return;
-
-        if (obj.name === name) this._gamepadObjects[name] = obj;
-
-        const children = obj.children;
-        for (let i = 0; i < children.length; ++i)
-            this.getGamepadObjectByName(children[i], name);
+        const found = obj.findByNameRecursive(name);
+        if (found[0]) return found[0];
     }
 
-    assignTransform(target: Object3D, min: Object3D, max: Object3D, value: number) {
+    private _assignTransform(
+        target: Object3D,
+        min: Object3D,
+        max: Object3D,
+        value: number
+    ) {
         vec3.lerp(
             _TempVec,
             min.getPositionWorld(minTemp),
@@ -266,15 +263,15 @@ export class InputProfile extends Component {
         target.setRotationWorld(_TempQuat);
     }
 
-    mapGamepadInput() {
+    private _mapGamepadInput() {
         for (const button of this._buttons) {
             const buttonValue = this._gamepad!.buttons[button.id].value;
-            this.assignTransform(button.target, button.min, button.max, buttonValue);
+            this._assignTransform(button.target, button.min, button.max, buttonValue);
         }
         for (const axis of this._axes) {
             const axisValue = this._gamepad!.axes[axis.id];
             const normalizedAxisValue = (axisValue + 1) / 2;
-            this.assignTransform(axis.target, axis.min, axis.max, normalizedAxisValue);
+            this._assignTransform(axis.target, axis.min, axis.max, normalizedAxisValue);
         }
     }
 }
