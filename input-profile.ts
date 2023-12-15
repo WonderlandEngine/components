@@ -4,10 +4,10 @@ import {vec3, quat} from 'gl-matrix';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {VrModeActiveSwitch} from './vr-mode-active-switch.js';
 
-const _TempVec = vec3.create();
-const _TempQuat = quat.create();
-const _TempRotation1 = new Float32Array(4);
-const _TempRotation2 = new Float32Array(4);
+const _tempVec = vec3.create();
+const _tempQuat = quat.create();
+const _tempRotation1 = new Float32Array(4);
+const _tempRotation2 = new Float32Array(4);
 const minTemp = new Float32Array(3);
 const maxTemp = new Float32Array(3);
 const hands = ['left', 'right'];
@@ -31,7 +31,7 @@ export class InputProfile extends Component {
     private _buttons: VisualResponse[] = [];
     private _axes: VisualResponse[] = [];
 
-    urlEmitter: Emitter = new Emitter();
+    onModelLoaded: Emitter = new Emitter();
 
     url!: string;
     toFilter: Set<string> = new Set(['vr-mode-active-mode-switch']);
@@ -182,7 +182,7 @@ export class InputProfile extends Component {
 
             if (this.addVrModeSwitch)
                 this._controllerModel.addComponent(VrModeActiveSwitch);
-            this.urlEmitter.notify();
+            this.onModelLoaded.notify();
         } else {
             console.log('mapping i-p to ' + this._handedness + ' default controllers');
         }
@@ -247,20 +247,20 @@ export class InputProfile extends Component {
         value: number
     ) {
         vec3.lerp(
-            _TempVec,
+            _tempVec,
             min.getPositionWorld(minTemp),
             max.getPositionWorld(maxTemp),
             value
         );
-        target.setPositionWorld(_TempVec);
+        target.setPositionWorld(_tempVec);
         quat.lerp(
-            _TempQuat,
-            min.getRotationWorld(_TempRotation1),
-            max.getRotationWorld(_TempRotation2),
+            _tempQuat,
+            min.getRotationWorld(_tempRotation1),
+            max.getRotationWorld(_tempRotation2),
             value
         );
-        quat.normalize(_TempQuat, _TempQuat);
-        target.setRotationWorld(_TempQuat);
+        quat.normalize(_tempQuat, _tempQuat);
+        target.setRotationWorld(_tempQuat);
     }
 
     private _mapGamepadInput() {
