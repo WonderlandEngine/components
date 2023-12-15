@@ -139,7 +139,6 @@ export class InputProfile extends Component {
                 .then((res) => res.json())
                 .then((out) => {
                     this._profileJSON = out;
-                    console.log('Profile downloaded and loaded from ' + this.url);
                     InputProfile.Cache.set(this.url, this._profileJSON);
 
                     if (!this._isModelLoaded()) this._loadAndMapGamepad(profile);
@@ -164,27 +163,24 @@ export class InputProfile extends Component {
                 this._controllerModel = (await this.engine.scene.append(
                     assetPath
                 )) as Object3D;
-                console.log(this._handedness + 'controller model loaded to the scene');
             } catch (e) {
                 console.error('failed to load 3d model');
                 console.error(e);
                 this._setComponentsActive(true);
                 console.log(
-                    'Couldnot load i-p, continuing with ' +
+                    'Couldnot load i-p controllers, continuing with ' +
                         this._handedness +
                         ' default controller'
                 );
+                console.error(e);
             }
             this._controllerModel.parent = this.object;
             this._controllerModel.setPositionLocal([0, 0, 0]);
             this._setComponentsActive(false);
-            console.log('Disabled ' + this._handedness + ' default Controller');
 
             if (this.addVrModeSwitch)
                 this._controllerModel.addComponent(VrModeActiveSwitch);
             this.onModelLoaded.notify();
-        } else {
-            console.log('mapping i-p to ' + this._handedness + ' default controllers');
         }
         this._cacheGamepadObjectsFromProfile(this._profileJSON, this._controllerModel);
         this._setHandTrackingControllers(this.defaultController);
