@@ -14,6 +14,8 @@ import {HitTestLocation} from './hit-test-location.js';
 
 const tempVec = new Float32Array(3);
 
+const ZERO = [0, 0, 0];
+
 export type EventTypes = PointerEvent | MouseEvent | XRInputSourceEvent;
 
 /** Global target for {@link Cursor} */
@@ -75,7 +77,6 @@ export class Cursor extends Component {
     private _lastPointerPos = new Float32Array(2);
 
     private _lastCursorPosOnTarget = new Float32Array(3);
-    private _cursorRayScale = new Float32Array(3);
 
     private _hitTestLocation: HitTestLocation | null = null;
     private _hitTestObject: Object3D | null = null;
@@ -234,11 +235,12 @@ export class Cursor extends Component {
     _setCursorRayTransform(hitPosition: vec3) {
         if (!this.cursorRayObject) return;
         const dist = vec3.dist(this._origin, hitPosition);
-        this.cursorRayObject.setTranslationLocal([0.0, 0.0, -dist / 2]);
+        this.cursorRayObject.setPositionLocal([0.0, 0.0, -dist / 2]);
         if (this.cursorRayScalingAxis != 4) {
-            this.cursorRayObject.resetScaling();
-            this._cursorRayScale[this.cursorRayScalingAxis] = dist / 2;
-            this.cursorRayObject.scale(this._cursorRayScale);
+            /* Scale only the requested axis, relative to the original scaling */
+            tempVec.fill(1);
+            tempVec[this.cursorRayScalingAxis] = dist / 2;
+            this.cursorRayObject.setScalingLocal(tempVec);
         }
     }
 
@@ -292,7 +294,7 @@ export class Cursor extends Component {
                 (this.cursorPos[0] != 0 || this.cursorPos[1] != 0 || this.cursorPos[2] != 0)
             ) {
                 this._setCursorVisibility(true);
-                this.cursorObject.setTranslationWorld(this.cursorPos);
+                this.cursorObject.setPositionWorld(this.cursorPos);
                 this._setCursorRayTransform(this.cursorPos);
             } else {
                 this._setCursorVisibility(false);
@@ -407,6 +409,10 @@ export class Cursor extends Component {
      */
     setupVREvents(s: XRSession) {
         if (!s) console.error('setupVREvents called without a valid session');
+        /* Because we remove the callback in .active and another component might
+         * deactivate the cursor during onXRSessionStart, we make sure the cursor
+         * really is active when we run this */
+        if (!this.active) return;
 
         /* If in VR, one-time bind the listener */
         const onSelect = this.onSelect.bind(this);
@@ -417,7 +423,7 @@ export class Cursor extends Component {
         s.addEventListener('selectend', onSelectEnd);
 
         this._onDeactivateCallbacks.push(() => {
-            if (!this.engine.xrSession) return;
+            if (!this.engine.xr) return;
             s.removeEventListener('select', onSelect);
             s.removeEventListener('selectstart', onSelectStart);
             s.removeEventListener('selectend', onSelectEnd);
@@ -433,7 +439,7 @@ export class Cursor extends Component {
 
         this._setCursorVisibility(false);
         if (this.hoveringObject) this.notify('onUnhover', null);
-        if (this.cursorRayObject) this.cursorRayObject.scale([0, 0, 0]);
+        if (this.cursorRayObject) this.cursorRayObject.setScalingLocal(ZERO);
 
         /* Ensure all event listeners are removed */
         for (const f of this._onDeactivateCallbacks) f();
@@ -534,9 +540,8 @@ export class Cursor extends Component {
     }
 
     private applyTransformToDirection() {
-        vec3.transformQuat(this._direction, this._direction, this.object.transformWorld);
-
-        this.object.getTranslationWorld(this._origin);
+        this.object.transformVectorWorld(this._direction, this._direction);
+        this.object.getPositionWorld(this._origin);
     }
 
     private rayCast(
@@ -561,9 +566,9 @@ export class Cursor extends Component {
         let hitResultDistance = Infinity;
         let hitTestResult = null;
         if (this._hitTestLocation?.visible) {
-            this._hitTestObject!.getTranslationWorld(this.cursorPos);
+            this._hitTestObject!.getPositionWorld(this.cursorPos);
             hitResultDistance = vec3.distance(
-                this.object.getTranslationWorld(tempVec),
+                this.object.getPositionWorld(tempVec),
                 this.cursorPos
             );
 
