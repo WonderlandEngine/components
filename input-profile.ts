@@ -27,10 +27,10 @@ export class InputProfile extends Component {
     private _defaultControllerComponents: Component[] | undefined;
     private _handedness!: string;
     private _profileJSON: any = null;
-    private _gamepad: Gamepad | undefined;
     private _buttons: VisualResponse[] = [];
     private _axes: VisualResponse[] = [];
 
+    gamepad: Gamepad | undefined;
     onModelLoaded: Emitter = new Emitter();
 
     url!: string;
@@ -123,7 +123,7 @@ export class InputProfile extends Component {
             if (xrInputSource.hand != null) return;
             if (this._handedness != xrInputSource.handedness) return;
 
-            this._gamepad = xrInputSource.gamepad;
+            this.gamepad = xrInputSource.gamepad;
             const profile =
                 this.customProfileFolder !== ''
                     ? this.customProfileFolder
@@ -261,11 +261,11 @@ export class InputProfile extends Component {
 
     private _mapGamepadInput() {
         for (const button of this._buttons) {
-            const buttonValue = this._gamepad!.buttons[button.id].value;
+            const buttonValue = this.gamepad!.buttons[button.id].value;
             this._assignTransform(button.target, button.min, button.max, buttonValue);
         }
         for (const axis of this._axes) {
-            const axisValue = this._gamepad!.axes[axis.id];
+            const axisValue = this.gamepad!.axes[axis.id];
             const normalizedAxisValue = (axisValue + 1) / 2;
             this._assignTransform(axis.target, axis.min, axis.max, normalizedAxisValue);
         }
