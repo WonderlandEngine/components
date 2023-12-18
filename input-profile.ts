@@ -19,8 +19,17 @@ interface VisualResponse {
     id: number;
 }
 
+/**
+ * Dynamically load and map input profiles for XR controllers
+ * @extends {Component}
+ */
+
 export class InputProfile extends Component {
     static TypeName = 'input-profile';
+    /**
+     * A cache to store loaded profiles for reuse.
+     * @type {Map<string, any>}
+     */
     static Cache: Map<string, any> = new Map();
     private _gamepadObjects: Record<string, Object3D> = {};
     private _controllerModel: Object3D | null = null;
@@ -30,10 +39,25 @@ export class InputProfile extends Component {
     private _buttons: VisualResponse[] = [];
     private _axes: VisualResponse[] = [];
 
+    /**
+     * The XR gamepad associated with the current input source.
+     */
     gamepad: Gamepad | undefined;
+    /**
+     * A Reference to the emitter which triggered on model lodaed event
+     * @type {Emitter}
+     */
     onModelLoaded: Emitter = new Emitter();
 
+    /** returns url of input profile json file
+     *  @type {string}
+     */
     url!: string;
+
+    /**
+     * A set of components to filter during component retrieval.
+     * @type {Set<string>}
+     */
     toFilter: Set<string> = new Set(['vr-mode-active-mode-switch']);
 
     @property.object()
@@ -73,12 +97,22 @@ export class InputProfile extends Component {
         });
     }
 
+    /**
+     * Cleans up resources when the component is deactivated.
+     */
     onDeactivate() {
         this.engine.xr?.session?.removeEventListener(
             'inputsourceschange',
             this._onInputSourcesChange.bind(this)
         );
     }
+
+    /**
+     * Sets newly loaded controllers for the Hand tracking component to proper switching.
+     * @extends HandTracking
+     * @param {Object3D} controllerObject - The controller object.
+     * @hidden
+     */
 
     private _setHandTrackingControllers(controllerObject: Object3D) {
         const handtrackingComponent = this.trackedHand.getComponent(HandTracking);
@@ -87,6 +121,12 @@ export class InputProfile extends Component {
         (handtrackingComponent as any).controllerToDeactivate = controllerObject;
     }
 
+    /**
+     * Retrieves all components from the specified object and its children.
+     * @param {Object3D} obj - The object to retrieve components from.
+     * @return {Component[]} An array of components.
+     * @hidden
+     */
     private _getComponents(obj: Object3D) {
         if (obj == null) return;
         const components: Component[] = [];
@@ -106,6 +146,11 @@ export class InputProfile extends Component {
         return components;
     }
 
+    /**
+     * Activates or deactivates components based on the specified boolean value.
+     * @param {boolean} active - If true, components are set to active; otherwise, they are set to inactive.
+     * @hidden
+     */
     private _setComponentsActive(active: boolean) {
         const comps = this._defaultControllerComponents;
         if (comps == undefined) return;
@@ -114,6 +159,12 @@ export class InputProfile extends Component {
         }
     }
 
+    /**
+     * Event handler triggered when XR input sources change.
+     * Detects new XR input sources and initiates the loading of input profiles.
+     * @param {XRInputSourceChangeEvent} event - The XR input source change event.
+     * @hidden
+     */
     private _onInputSourcesChange(event: XRInputSourceChangeEvent) {
         if (this._isModelLoaded() && !this.mapToDefaultController) {
             this._setComponentsActive(false);
@@ -150,10 +201,20 @@ export class InputProfile extends Component {
         });
     }
 
+    /**
+     * Checks if the 3D controller model is already loaded.
+     * @return {boolean} True if the model is loaded; otherwise, false.
+     * @hidden
+     */
     private _isModelLoaded() {
         return this._controllerModel !== null;
     }
 
+    /**
+     * Loads the 3D controller model and maps the visaulResponses to gamepad.
+     * @param {string} profile - The path to the input profile.
+     * @hidden
+     */
     private async _loadAndMapGamepad(profile: string) {
         const assetPath = profile + '/' + this._handedness + '.glb';
         this._controllerModel = this.defaultController;
@@ -187,6 +248,12 @@ export class InputProfile extends Component {
         this.update = () => this._mapGamepadInput();
     }
 
+    /**
+     * Caches gamepad objects (buttons, axes) from the loaded input profile.
+     * @param {Object} profile - The loaded input profile.
+     * @param {Object3D} obj - The 3D controller model.
+     * @hidden
+     */
     private _cacheGamepadObjectsFromProfile(profile: any, obj: Object3D) {
         const components = profile.layouts[this._handedness].components;
         if (!components) return;
@@ -230,12 +297,27 @@ export class InputProfile extends Component {
         }
     }
 
+    /**
+     * Retrieves a game object from the specified object based on its name.
+     * @param {Object3D} obj - The object to search for the specified name.
+     * @param {string} name - The name of the object to retrieve.
+     * @return {Object3D|undefined} The retrieved game object, or undefined if not found.
+     * @hidden
+     */
     private _getObjectByName(obj: Object3D, name: string) {
         if (!obj || !name) return;
         const found = obj.findByNameRecursive(name);
         if (found[0]) return found[0];
     }
 
+    /**
+     * Assigns a transformed position and rotation to the target based on minimum and maximum values and a normalized input value.
+     * @param {Object3D} target - The target object to be transformed.
+     * @param {Object3D} min - The minimum object providing transformation limits.
+     * @param {Object3D} max - The maximum object providing transformation limits.
+     * @param {number} value - The normalized input value.
+     * @hidden
+     */
     private _assignTransform(
         target: Object3D,
         min: Object3D,
@@ -258,6 +340,11 @@ export class InputProfile extends Component {
         quat.normalize(_tempQuat, _tempQuat);
         target.setRotationWorld(_tempQuat);
     }
+
+    /**
+     * Maps input values (buttons, axes) to the 3D controller model.
+     * @hidden
+     */
 
     private _mapGamepadInput() {
         for (const button of this._buttons) {
