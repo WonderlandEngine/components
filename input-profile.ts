@@ -20,15 +20,13 @@ interface VisualResponse {
 }
 
 /**
- * Dynamically load and map input profiles for XR controllers
- * @extends {Component}
+ * Dynamically load and map input profiles for XR controllers.
  */
 
 export class InputProfile extends Component {
     static TypeName = 'input-profile';
     /**
      * A cache to store loaded profiles for reuse.
-     * @type {Map<string, any>}
      */
     static Cache: Map<string, any> = new Map();
     private _gamepadObjects: Record<string, Object3D> = {};
@@ -44,45 +42,63 @@ export class InputProfile extends Component {
      */
     gamepad: Gamepad | undefined;
     /**
-     * A Reference to the emitter which triggered on model lodaed event
-     * @type {Emitter}
+     * A reference to the emitter which triggered on model lodaed event.
      */
     onModelLoaded: Emitter = new Emitter();
 
-    /** returns url of input profile json file
-     *  @type {string}
+    /**
+     * Returns url of input profile json file
      */
     url!: string;
 
     /**
      * A set of components to filter during component retrieval.
-     * @type {Set<string>}
      */
     toFilter: Set<string> = new Set(['vr-mode-active-mode-switch']);
 
+    /**
+     * The default 3D controller model used when a custom model fails to load.
+     */
     @property.object()
     defaultController!: Object3D;
 
+    /**
+     * The index representing the handedness of the controller (0 for left, 1 for right).
+     */
     @property.enum(hands, 0)
     handednessIndex: number = 0;
 
+    /**
+     * The base path where XR input profiles are stored.
+     */
     @property.string(
         'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@latest/dist/profiles/'
     )
     path!: string;
 
+    /**
+     * An optional folder path for loading custom XR input profiles.
+     */
     @property.string()
     customProfileFolder!: string;
 
+    /**
+     * If true, the input profile will be mapped to the default controller, and no dynamic 3D model of controller will be loaded.
+     */
     @property.bool(false)
     mapToDefaultController!: boolean;
 
+    /**
+     * The object which has HandTracking component added to it.
+     */
     @property.object()
     trackedHand!: Object3D;
 
+    /**
+     * If true, adds a VR mode switch component to the loaded controller model.
+     */
     @property.bool(true)
     addVrModeSwitch!: boolean;
-
     start() {
         this._controllerModel = null;
         this.toFilter = new Set(['vr-mode-active-mode-switch']);
@@ -97,9 +113,6 @@ export class InputProfile extends Component {
         });
     }
 
-    /**
-     * Cleans up resources when the component is deactivated.
-     */
     onDeactivate() {
         this.engine.xr?.session?.removeEventListener(
             'inputsourceschange',
@@ -108,8 +121,7 @@ export class InputProfile extends Component {
     }
 
     /**
-     * Sets newly loaded controllers for the Hand tracking component to proper switching.
-     * @extends HandTracking
+     * Sets newly loaded controllers for the HandTracking component to proper switching.
      * @param {Object3D} controllerObject - The controller object.
      * @hidden
      */
@@ -117,7 +129,7 @@ export class InputProfile extends Component {
     private _setHandTrackingControllers(controllerObject: Object3D) {
         const handtrackingComponent = this.trackedHand.getComponent(HandTracking);
         if (!handtrackingComponent) return;
-        /** @todo: Remove any when hand tracking is typed. */
+        /** @todo: Remove any when HandTracking is typed. */
         (handtrackingComponent as any).controllerToDeactivate = controllerObject;
     }
 
@@ -202,7 +214,7 @@ export class InputProfile extends Component {
     }
 
     /**
-     * Checks if the 3D controller model is already loaded.
+     * Checks if the 3D controller model is loaded.
      * @return {boolean} True if the model is loaded; otherwise, false.
      * @hidden
      */
@@ -211,7 +223,7 @@ export class InputProfile extends Component {
     }
 
     /**
-     * Loads the 3D controller model and maps the visaulResponses to gamepad.
+     * Loads the 3D controller model and caches the mapping to the gamepad.
      * @param {string} profile - The path to the input profile.
      * @hidden
      */
@@ -250,8 +262,6 @@ export class InputProfile extends Component {
 
     /**
      * Caches gamepad objects (buttons, axes) from the loaded input profile.
-     * @param {Object} profile - The loaded input profile.
-     * @param {Object3D} obj - The 3D controller model.
      * @hidden
      */
     private _cacheGamepadObjectsFromProfile(profile: any, obj: Object3D) {
@@ -345,7 +355,6 @@ export class InputProfile extends Component {
      * Maps input values (buttons, axes) to the 3D controller model.
      * @hidden
      */
-
     private _mapGamepadInput() {
         for (const button of this._buttons) {
             const buttonValue = this.gamepad!.buttons[button.id].value;
