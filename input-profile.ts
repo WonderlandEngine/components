@@ -22,7 +22,6 @@ interface VisualResponse {
 /**
  * Dynamically load and map input profiles for XR controllers.
  */
-
 export class InputProfile extends Component {
     static TypeName = 'input-profile';
     /**
@@ -57,12 +56,6 @@ export class InputProfile extends Component {
     toFilter: Set<string> = new Set(['vr-mode-active-mode-switch']);
 
     /**
-     * The default 3D controller model used when a custom model fails to load.
-     */
-    @property.object()
-    defaultController!: Object3D;
-
-    /**
      * The index representing the handedness of the controller (0 for left, 1 for right).
      */
     @property.enum(hands, 0)
@@ -83,10 +76,10 @@ export class InputProfile extends Component {
     customProfileFolder!: string;
 
     /**
-     * If true, the input profile will be mapped to the default controller, and no dynamic 3D model of controller will be loaded.
+     * The default 3D controller model used when a custom model fails to load.
      */
-    @property.bool(false)
-    mapToDefaultController!: boolean;
+    @property.object()
+    defaultController!: Object3D;
 
     /**
      * The object which has HandTracking component added to it.
@@ -95,15 +88,26 @@ export class InputProfile extends Component {
     trackedHand!: Object3D;
 
     /**
+     * If true, the input profile will be mapped to the default controller, and no dynamic 3D model of controller will be loaded.
+     */
+    @property.bool(false)
+    mapToDefaultController!: boolean;
+
+    /**
      * If true, adds a VR mode switch component to the loaded controller model.
      */
     @property.bool(true)
     addVrModeSwitch!: boolean;
-    start() {
-        this._controllerModel = null;
-        this.toFilter = new Set(['vr-mode-active-mode-switch']);
-        this._defaultControllerComponents = this._getComponents(this.defaultController);
+
+    onActivate() {
         this._handedness = hands[this.handednessIndex];
+        const defaultHandName =
+            'Hand' + this._handedness.charAt(0).toUpperCase() + this._handedness.slice(1);
+        this.trackedHand =
+            this.trackedHand || this.object.parent.findByNameRecursive(defaultHandName)[0];
+        console.log(this.trackedHand);
+        this.defaultController = this.defaultController || this.object.children[0];
+        this._defaultControllerComponents = this._getComponents(this.defaultController);
 
         this.engine.onXRSessionStart.add(() => {
             this.engine.xr?.session.addEventListener(
@@ -122,34 +126,34 @@ export class InputProfile extends Component {
 
     /**
      * Sets newly loaded controllers for the HandTracking component to proper switching.
-     * @param {Object3D} controllerObject - The controller object.
+     * @param controllerObject The controller object.
      * @hidden
      */
 
     private _setHandTrackingControllers(controllerObject: Object3D) {
-        const handtrackingComponent = this.trackedHand.getComponent(HandTracking);
+        const handtrackingComponent: HandTracking | null =
+            this.trackedHand.getComponent(HandTracking);
         if (!handtrackingComponent) return;
-        /** @todo: Remove any when HandTracking is typed. */
-        (handtrackingComponent as any).controllerToDeactivate = controllerObject;
+        handtrackingComponent.controllerToDeactivate = controllerObject;
     }
 
     /**
      * Retrieves all components from the specified object and its children.
-     * @param {Object3D} obj - The object to retrieve components from.
-     * @return {Component[]} An array of components.
+     * @param obj The object to retrieve components from.
+     * @return An array of components.
      * @hidden
      */
-    private _getComponents(obj: Object3D) {
-        if (obj == null) return;
+    private _getComponents(obj: Object3D | null) {
         const components: Component[] = [];
+        if (obj == null) return components;
         const stack = [obj];
         while (stack.length > 0) {
             const currentObj = stack.pop();
-            const comps = currentObj
+            const comps = currentObj!
                 .getComponents()
                 .filter((c: Component) => !this.toFilter.has(c.type));
             components.push(...comps);
-            const children = currentObj.children || [];
+            const children = currentObj!.children || [];
             // Push children onto the stack in reverse order to maintain the correct order
             for (let i = children.length - 1; i >= 0; --i) {
                 stack.push(children[i]);
@@ -160,7 +164,7 @@ export class InputProfile extends Component {
 
     /**
      * Activates or deactivates components based on the specified boolean value.
-     * @param {boolean} active - If true, components are set to active; otherwise, they are set to inactive.
+     * @param active If true, components are set to active; otherwise, they are set to inactive.
      * @hidden
      */
     private _setComponentsActive(active: boolean) {
@@ -174,7 +178,7 @@ export class InputProfile extends Component {
     /**
      * Event handler triggered when XR input sources change.
      * Detects new XR input sources and initiates the loading of input profiles.
-     * @param {XRInputSourceChangeEvent} event - The XR input source change event.
+     * @param event The XR input source change event.
      * @hidden
      */
     private _onInputSourcesChange(event: XRInputSourceChangeEvent) {
@@ -193,9 +197,7 @@ export class InputProfile extends Component {
                     : this.path + xrInputSource.profiles[0];
             this.url = profile + '/profile.json';
 
-            this._profileJSON = InputProfile.Cache.has(this.url)
-                ? InputProfile.Cache.get(this.url)
-                : null;
+            this._profileJSON = InputProfile.Cache.get(this.url) ?? null;
 
             if (this._profileJSON != null) return;
             fetch(this.url)
@@ -207,15 +209,14 @@ export class InputProfile extends Component {
                     if (!this._isModelLoaded()) this._loadAndMapGamepad(profile);
                 })
                 .catch((e) => {
-                    console.error('failed to load profile from' + this.url);
-                    console.error(e);
+                    console.error('Failed to load profile from ', this.url, '.Reason: ', e);
                 });
         });
     }
 
     /**
      * Checks if the 3D controller model is loaded.
-     * @return {boolean} True if the model is loaded; otherwise, false.
+     * @return True if the model is loaded; otherwise, false.
      * @hidden
      */
     private _isModelLoaded() {
@@ -224,7 +225,7 @@ export class InputProfile extends Component {
 
     /**
      * Loads the 3D controller model and caches the mapping to the gamepad.
-     * @param {string} profile - The path to the input profile.
+     * @param profile The path to the input profile.
      * @hidden
      */
     private async _loadAndMapGamepad(profile: string) {
@@ -237,7 +238,7 @@ export class InputProfile extends Component {
                     assetPath
                 )) as Object3D;
             } catch (e) {
-                console.error('failed to load 3d model');
+                console.error('Failed to load 3d model');
                 console.error(e);
                 this._setComponentsActive(true);
                 console.log(
@@ -281,9 +282,12 @@ export class InputProfile extends Component {
                 const minNode = visualResponse.minNodeName;
                 const maxNode = visualResponse.maxNodeName;
 
-                this._gamepadObjects[valueNode] = this._getObjectByName(obj, valueNode);
-                this._gamepadObjects[minNode] = this._getObjectByName(obj, minNode);
-                this._gamepadObjects[maxNode] = this._getObjectByName(obj, maxNode);
+                this._gamepadObjects[valueNode] =
+                    obj.findByNameRecursive(valueNode)[0] ?? undefined;
+                this._gamepadObjects[minNode] =
+                    obj.findByNameRecursive(minNode)[0] ?? undefined;
+                this._gamepadObjects[maxNode] =
+                    obj.findByNameRecursive(maxNode)[0] ?? undefined;
 
                 let indice = visualResponses[j].componentProperty;
                 const response: VisualResponse = {
@@ -308,24 +312,11 @@ export class InputProfile extends Component {
     }
 
     /**
-     * Retrieves a game object from the specified object based on its name.
-     * @param {Object3D} obj - The object to search for the specified name.
-     * @param {string} name - The name of the object to retrieve.
-     * @return {Object3D|undefined} The retrieved game object, or undefined if not found.
-     * @hidden
-     */
-    private _getObjectByName(obj: Object3D, name: string) {
-        if (!obj || !name) return;
-        const found = obj.findByNameRecursive(name);
-        if (found[0]) return found[0];
-    }
-
-    /**
      * Assigns a transformed position and rotation to the target based on minimum and maximum values and a normalized input value.
-     * @param {Object3D} target - The target object to be transformed.
-     * @param {Object3D} min - The minimum object providing transformation limits.
-     * @param {Object3D} max - The maximum object providing transformation limits.
-     * @param {number} value - The normalized input value.
+     * @param target The target object to be transformed.
+     * @param min The minimum object providing transformation limits.
+     * @param max The maximum object providing transformation limits.
+     * @param value The normalized input value.
      * @hidden
      */
     private _assignTransform(
