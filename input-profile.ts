@@ -59,7 +59,7 @@ export class InputProfile extends Component {
      * The index representing the handedness of the controller (0 for left, 1 for right).
      */
     @property.enum(hands, 0)
-    handednessIndex: number = 0;
+    handedness: number = 0;
 
     /**
      * The base path where XR input profiles are stored.
@@ -67,13 +67,13 @@ export class InputProfile extends Component {
     @property.string(
         'https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets@latest/dist/profiles/'
     )
-    path!: string;
+    defaultBasePath!: string;
 
     /**
      * An optional folder path for loading custom XR input profiles.
      */
     @property.string()
-    customProfileFolder!: string;
+    customBasePath!: string;
 
     /**
      * The default 3D controller model used when a custom model fails to load.
@@ -100,12 +100,11 @@ export class InputProfile extends Component {
     addVrModeSwitch!: boolean;
 
     onActivate() {
-        this._handedness = hands[this.handednessIndex];
+        this._handedness = hands[this.handedness];
         const defaultHandName =
             'Hand' + this._handedness.charAt(0).toUpperCase() + this._handedness.slice(1);
         this.trackedHand =
             this.trackedHand || this.object.parent.findByNameRecursive(defaultHandName)[0];
-        console.log(this.trackedHand);
         this.defaultController = this.defaultController || this.object.children[0];
         this._defaultControllerComponents = this._getComponents(this.defaultController);
 
@@ -146,14 +145,14 @@ export class InputProfile extends Component {
     private _getComponents(obj: Object3D | null) {
         const components: Component[] = [];
         if (obj == null) return components;
-        const stack = [obj];
+        const stack: Object3D[] = [obj];
         while (stack.length > 0) {
             const currentObj = stack.pop();
-            const comps = currentObj!
+            const comps = currentObj
                 .getComponents()
                 .filter((c: Component) => !this.toFilter.has(c.type));
             components.push(...comps);
-            const children = currentObj!.children || [];
+            const children = currentObj.children;
             // Push children onto the stack in reverse order to maintain the correct order
             for (let i = children.length - 1; i >= 0; --i) {
                 stack.push(children[i]);
@@ -192,9 +191,9 @@ export class InputProfile extends Component {
 
             this.gamepad = xrInputSource.gamepad;
             const profile =
-                this.customProfileFolder !== ''
-                    ? this.customProfileFolder
-                    : this.path + xrInputSource.profiles[0];
+                this.customBasePath !== ''
+                    ? this.customBasePath
+                    : this.defaultBasePath + xrInputSource.profiles[0];
             this.url = profile + '/profile.json';
 
             this._profileJSON = InputProfile.Cache.get(this.url) ?? null;
@@ -209,7 +208,7 @@ export class InputProfile extends Component {
                     if (!this._isModelLoaded()) this._loadAndMapGamepad(profile);
                 })
                 .catch((e) => {
-                    console.error('Failed to load profile from ', this.url, '.Reason: ', e);
+                    console.error(`Failed to load profile from ${this.url}. Reason:`, e);
                 });
         });
     }
@@ -238,15 +237,12 @@ export class InputProfile extends Component {
                     assetPath
                 )) as Object3D;
             } catch (e) {
-                console.error('Failed to load 3d model');
-                console.error(e);
-                this._setComponentsActive(true);
-                console.log(
-                    'Couldnot load i-p controllers, continuing with ' +
-                        this._handedness +
-                        ' default controller'
+                console.error(
+                    `Failed to load i-p controller model. Reason:`,
+                    e,
+                    `Continuing with ${this._handedness} default controller.`
                 );
-                console.error(e);
+                this._setComponentsActive(true);
             }
             this._controllerModel.parent = this.object;
             this._controllerModel.setPositionLocal([0, 0, 0]);
@@ -257,7 +253,7 @@ export class InputProfile extends Component {
             this.onModelLoaded.notify();
         }
         this._cacheGamepadObjectsFromProfile(this._profileJSON, this._controllerModel);
-        this._setHandTrackingControllers(this.defaultController);
+        this._setHandTrackingControllers(this._controllerModel);
         this.update = () => this._mapGamepadInput();
     }
 
