@@ -37,43 +37,40 @@ export class HitTestLocation extends Component {
     onSessionEndCallback: (() => void) | null = null;
 
     start() {
-        this.onSessionStartCallback = this.onXRSessionStart.bind(this);
-        this.onSessionEndCallback = this.onXRSessionEnd.bind(this);
-
         if (this.scaleObject) {
-            this.tempScaling.set(this.object.scalingLocal);
-            this.object.scale([0, 0, 0]);
+            this.object.getScalingLocal(this.tempScaling);
+            this.object.scaleLocal([0, 0, 0]);
 
             this.onHitLost.add(() => {
-                this.tempScaling.set(this.object.scalingLocal);
-                this.object.scale([0, 0, 0]);
+                this.object.getScalingLocal(this.tempScaling);
+                this.object.scaleLocal([0, 0, 0]);
             });
             this.onHitFound.add(() => {
-                this.object.scalingLocal.set(this.tempScaling);
+                this.object.setScalingLocal(this.tempScaling);
                 this.object.setDirty();
             });
         }
     }
 
     onActivate() {
-        this.engine.onXRSessionStart.add(this.onSessionStartCallback!);
-        this.engine.onXRSessionEnd.add(this.onSessionEndCallback!);
+        this.engine.onXRSessionStart.add(this.onXRSessionStart);
+        this.engine.onXRSessionEnd.add(this.onXRSessionEnd);
     }
 
     onDeactivate() {
-        this.engine.onXRSessionStart.remove(this.onSessionStartCallback!);
-        this.engine.onXRSessionEnd.remove(this.onSessionEndCallback!);
+        this.engine.onXRSessionStart.remove(this.onXRSessionStart);
+        this.engine.onXRSessionEnd.remove(this.onXRSessionEnd);
     }
 
     update() {
         const wasVisible = this.visible;
         if (this.xrHitTestSource) {
-            const frame = this.engine.xrFrame;
+            const frame = this.engine.xr?.frame;
             if (!frame) return;
 
-            let hitTestResults = frame.getHitTestResults(this.xrHitTestSource);
+            const hitTestResults = frame.getHitTestResults(this.xrHitTestSource);
             if (hitTestResults.length > 0) {
-                let pose = hitTestResults[0].getPose(this.engine.xr!.currentReferenceSpace);
+                const pose = hitTestResults[0].getPose(this.engine.xr!.currentReferenceSpace);
                 this.visible = !!pose;
                 if (pose) {
                     setXRRigidTransformLocal(this.object, pose.transform);
@@ -96,7 +93,7 @@ export class HitTestLocation extends Component {
         return frame.getHitTestResults(this.xrHitTestSource);
     }
 
-    onXRSessionStart(session: XRSession) {
+    onXRSessionStart = (session: XRSession) => {
         if (session.requestHitTestSource === undefined) {
             console.error(
                 'hit-test-location: hit test feature not available. Deactivating component.'
@@ -117,7 +114,7 @@ export class HitTestLocation extends Component {
             .catch(console.error);
     }
 
-    onXRSessionEnd() {
+    onXRSessionEnd = () => {
         if (!this.xrHitTestSource) return;
         this.xrHitTestSource.cancel();
         this.xrHitTestSource = null;
