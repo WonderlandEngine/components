@@ -278,14 +278,11 @@ export class InputProfile extends Component {
                 const minNode = visualResponse.minNodeName;
                 const maxNode = visualResponse.maxNodeName;
 
-                this._gamepadObjects[valueNode] =
-                    obj.findByNameRecursive(valueNode)[0] ?? undefined;
-                this._gamepadObjects[minNode] =
-                    obj.findByNameRecursive(minNode)[0] ?? undefined;
-                this._gamepadObjects[maxNode] =
-                    obj.findByNameRecursive(maxNode)[0] ?? undefined;
+                this._gamepadObjects[valueNode] = obj.findByNameRecursive(valueNode)[0];
+                this._gamepadObjects[minNode] = obj.findByNameRecursive(minNode)[0];
+                this._gamepadObjects[maxNode] = obj.findByNameRecursive(maxNode)[0];
 
-                let indice = visualResponses[j].componentProperty;
+                const indice = visualResponses[j].componentProperty;
                 const response: VisualResponse = {
                     target: this._gamepadObjects[valueNode],
                     min: this._gamepadObjects[minNode],
@@ -297,8 +294,6 @@ export class InputProfile extends Component {
                         this._buttons.push(response);
                         break;
                     case 'xAxis':
-                        this._axes.push(response);
-                        break;
                     case 'yAxis':
                         this._axes.push(response);
                         break;
