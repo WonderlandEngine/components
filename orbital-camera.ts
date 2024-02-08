@@ -36,6 +36,9 @@ export class OrbitalCamera extends Component {
     @property.float(0.02)
     zoomSensitivity = 0.02;
 
+    @property.float(0.9)
+    decelerationFactor = 0.9;
+
     private mouseDown: boolean = false;
     private origin = [0, 0, 0];
     private azimuth = 0;
@@ -43,6 +46,9 @@ export class OrbitalCamera extends Component {
 
     private touchStartX: number = 0;
     private touchStartY: number = 0;
+
+    private azimuthSpeed: number = 0;
+    private polarSpeed: number = 0;
 
     start(): void {
         this.object.getPositionWorld(this.origin);
@@ -89,6 +95,30 @@ export class OrbitalCamera extends Component {
         this.touchStartY = 0;
     }
 
+    update(): void {
+        if (!this.mouseDown) {
+            // Apply deceleration only when the user is not actively dragging
+            this.azimuthSpeed *= this.decelerationFactor;
+            this.polarSpeed *= this.decelerationFactor;
+
+            // Stop completely if the speed is very low to avoid endless tiny movements
+            if (Math.abs(this.azimuthSpeed) < 0.01) this.azimuthSpeed = 0;
+            if (Math.abs(this.polarSpeed) < 0.01) this.polarSpeed = 0;
+        }
+
+        // Apply the speed to the camera angles
+        this.azimuth += this.azimuthSpeed;
+        this.polar += this.polarSpeed;
+
+        // Clamp the polar angle
+        this.polar = Math.min(this.maxElevation, Math.max(this.minElevation, this.polar));
+
+        // Update the camera if there's any speed
+        if (this.azimuthSpeed !== 0 || this.polarSpeed !== 0) {
+            this.updateCamera();
+        }
+    }
+
     private updateCamera() {
         this.object.setPositionWorld([
             this.radial * Math.sin(deg2rad(this.azimuth)) * Math.cos(deg2rad(this.polar)),
@@ -121,13 +151,17 @@ export class OrbitalCamera extends Component {
 
     private onMouseMove = (e: MouseEvent) => {
         if (this.active && this.mouseDown) {
-            this.azimuth += -(e.movementX * this.xSensitivity);
-            this.polar += e.movementY * this.ySensitivity;
-            this.polar = Math.min(
-                this.maxElevation,
-                Math.max(this.minElevation, this.polar)
-            );
-            this.updateCamera();
+            if (this.active && this.mouseDown) {
+                this.azimuthSpeed = -(e.movementX * this.xSensitivity);
+                this.polarSpeed = e.movementY * this.ySensitivity;
+            }
+            // this.azimuth += -(e.movementX * this.xSensitivity);
+            // this.polar += e.movementY * this.ySensitivity;
+            // this.polar = Math.min(
+            //     this.maxElevation,
+            //     Math.max(this.minElevation, this.polar)
+            // );
+            // this.updateCamera();
         }
     };
 
@@ -160,18 +194,11 @@ export class OrbitalCamera extends Component {
     private onTouchMove = (e: TouchEvent) => {
         if (this.active && this.mouseDown) {
             if (e.touches.length === 1) {
-                // Handle rotation
                 const deltaX = e.touches[0].clientX - this.touchStartX;
                 const deltaY = e.touches[0].clientY - this.touchStartY;
 
-                this.azimuth += -(deltaX * this.xSensitivity);
-                this.polar += deltaY * this.ySensitivity;
-                this.polar = Math.min(
-                    this.maxElevation,
-                    Math.max(this.minElevation, this.polar)
-                );
-
-                this.updateCamera();
+                this.azimuthSpeed = -(deltaX * this.xSensitivity);
+                this.polarSpeed = deltaY * this.ySensitivity;
 
                 this.touchStartX = e.touches[0].clientX;
                 this.touchStartY = e.touches[0].clientY;
