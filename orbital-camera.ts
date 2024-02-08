@@ -86,13 +86,17 @@ export class OrbitalCamera extends Component {
         canvas.removeEventListener('touchmove', this.onTouchMove);
         canvas.removeEventListener('touchend', this.onTouchEnd);
 
+        // Reset state to make sure nothing gets stuck
         this.mouseDown = false;
         this.initialPinchDistance = 0;
-        // Reset interaction states
+        
         this.mouseDown = false;
         this.initialPinchDistance = 0;
         this.touchStartX = 0;
         this.touchStartY = 0;
+
+        this.azimuthSpeed = 0;
+        this.polarSpeed = 0;
     }
 
     update(): void {
