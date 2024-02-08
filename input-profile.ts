@@ -104,7 +104,7 @@ export class InputProfile extends Component {
         const defaultHandName =
             'Hand' + this._handedness.charAt(0).toUpperCase() + this._handedness.slice(1);
         this.trackedHand =
-            this.trackedHand || this.object.parent.findByNameRecursive(defaultHandName)[0];
+            this.trackedHand ?? this.object.parent?.findByNameRecursive(defaultHandName)[0];
         this.defaultController = this.defaultController || this.object.children[0];
         this._defaultControllerComponents = this._getComponents(this.defaultController);
 
@@ -147,7 +147,7 @@ export class InputProfile extends Component {
         if (obj == null) return components;
         const stack: Object3D[] = [obj];
         while (stack.length > 0) {
-            const currentObj = stack.pop();
+            const currentObj = stack.pop()!;
             const comps = currentObj
                 .getComponents()
                 .filter((c: Component) => !this.toFilter.has(c.type));
