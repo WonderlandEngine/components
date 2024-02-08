@@ -44,6 +44,7 @@ export class OrbitalCamera extends Component {
     private azimuth = 0;
     private polar = 45;
 
+    private initialPinchDistance: number = 0;
     private touchStartX: number = 0;
     private touchStartY: number = 0;
 
@@ -87,9 +88,6 @@ export class OrbitalCamera extends Component {
         canvas.removeEventListener('touchend', this.onTouchEnd);
 
         // Reset state to make sure nothing gets stuck
-        this.mouseDown = false;
-        this.initialPinchDistance = 0;
-        
         this.mouseDown = false;
         this.initialPinchDistance = 0;
         this.touchStartX = 0;
@@ -159,13 +157,6 @@ export class OrbitalCamera extends Component {
                 this.azimuthSpeed = -(e.movementX * this.xSensitivity);
                 this.polarSpeed = e.movementY * this.ySensitivity;
             }
-            // this.azimuth += -(e.movementX * this.xSensitivity);
-            // this.polar += e.movementY * this.ySensitivity;
-            // this.polar = Math.min(
-            //     this.maxElevation,
-            //     Math.max(this.minElevation, this.polar)
-            // );
-            // this.updateCamera();
         }
     };
 
@@ -177,9 +168,6 @@ export class OrbitalCamera extends Component {
     };
 
     // Touch event handlers
-
-    // Add a property to keep track of the initial pinch distance
-    private initialPinchDistance: number = 0;
 
     private onTouchStart = (e: TouchEvent) => {
         if (e.touches.length === 1) {
