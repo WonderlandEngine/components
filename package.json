@@ -14,7 +14,7 @@
         "test": "npm run build && web-test-runner",
         "test:single": "npm run test -- --files",
         "test:watch": "npm run test -- --watch",
-        "prepublishOnly": "npm run build",
+        "prepack": "npm run build",
         "pretty": "prettier --config ./.prettierrc.json --write ./src"
     },
     "repository": {
