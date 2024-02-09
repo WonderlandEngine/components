@@ -96,7 +96,7 @@ export class OrbitalCamera extends Component {
         canvas.removeEventListener('touchmove', this._onTouchMove);
         canvas.removeEventListener('touchend', this._onTouchEnd);
 
-        // Reset state to make sure nothing gets stuck
+        /** Reset state to make sure nothing gets stuck */
         this._mouseDown = false;
         this._initialPinchDistance = 0;
         this._touchStartX = 0;
@@ -108,23 +108,23 @@ export class OrbitalCamera extends Component {
 
     update(): void {
         if (!this._mouseDown) {
-            // Apply deceleration only when the user is not actively dragging
+            /** Apply deceleration only when the user is not actively dragging */
             this._azimuthSpeed *= this.damping;
             this._polarSpeed *= this.damping;
 
-            // Stop completely if the speed is very low to avoid endless tiny movements
+            /** Stop completely if the speed is very low to avoid endless tiny movements */
             if (Math.abs(this._azimuthSpeed) < 0.01) this._azimuthSpeed = 0;
             if (Math.abs(this._polarSpeed) < 0.01) this._polarSpeed = 0;
         }
 
-        // Apply the speed to the camera angles
+        /** Apply the speed to the camera angles */
         this._azimuth += this._azimuthSpeed;
         this._polar += this._polarSpeed;
 
-        // Clamp the polar angle
+        /** Clamp the polar angle */
         this._polar = Math.min(this.maxElevation, Math.max(this.minElevation, this._polar));
 
-        // Update the camera if there's any speed
+        /** Update the camera if there's any speed */
         if (this._azimuthSpeed !== 0 || this._polarSpeed !== 0) {
             this._updateCamera();
         }
@@ -154,7 +154,7 @@ export class OrbitalCamera extends Component {
             this._mouseDown = true;
             document.body.style.cursor = 'grabbing';
             if (e.button === 1) {
-                e.preventDefault(); // to prevent scrolling
+                e.preventDefault(); /** to prevent scrolling */
                 return false;
             }
         }
@@ -177,7 +177,7 @@ export class OrbitalCamera extends Component {
     };
 
     private _onMouseScroll = (e: WheelEvent) => {
-        e.preventDefault(); // to prevent scrolling
+        e.preventDefault(); /** to prevent scrolling */
 
         this.radial *= 1 - e.deltaY * this.zoomSensitivity * -0.001;
         this.radial = Math.min(this.maxZoom, Math.max(this.minZoom, this.radial));
@@ -189,15 +189,16 @@ export class OrbitalCamera extends Component {
 
     private _onTouchStart = (e: TouchEvent) => {
         if (e.touches.length === 1) {
-            e.preventDefault(); // to prevent scrolling and allow us to track touch movement
+            /** to prevent scrolling and allow us to track touch movement */
+            e.preventDefault(); 
 
             this._touchStartX = e.touches[0].clientX;
             this._touchStartY = e.touches[0].clientY;
-            this._mouseDown = true; // Treat touch like mouse down
+            this._mouseDown = true; /** Treat touch like mouse down */
         } else if (e.touches.length === 2) {
-            // Calculate initial pinch distance
+            /** Calculate initial pinch distance */
             this._initialPinchDistance = this._getDistanceBetweenTouches(e.touches);
-            e.preventDefault(); // Prevent default pinch actions
+            e.preventDefault(); /** Prevent default pinch actions */
         }
     };
 
@@ -205,7 +206,7 @@ export class OrbitalCamera extends Component {
         if (!this.active || !this._mouseDown) {
             return;
         }
-        e.preventDefault(); // to prevent moving the page
+        e.preventDefault(); /** to prevent moving the page */
         if (e.touches.length === 1) {
             const deltaX = e.touches[0].clientX - this._touchStartX;
             const deltaY = e.touches[0].clientY - this._touchStartY;
@@ -216,7 +217,7 @@ export class OrbitalCamera extends Component {
             this._touchStartX = e.touches[0].clientX;
             this._touchStartY = e.touches[0].clientY;
         } else if (e.touches.length === 2) {
-            // Handle pinch zoom
+            /** Handle pinch zoom */
             const currentPinchDistance = this._getDistanceBetweenTouches(e.touches);
             const pinchScale = this._initialPinchDistance / currentPinchDistance;
 
@@ -225,17 +226,17 @@ export class OrbitalCamera extends Component {
 
             this._updateCamera();
 
-            // Update initial pinch distance for next move
+            /** Update initial pinch distance for next move */
             this._initialPinchDistance = currentPinchDistance;
         }
     };
 
     private _onTouchEnd = (e: TouchEvent) => {
         if (e.touches.length < 2) {
-            this._mouseDown = false; // Treat touch end like mouse up
+            this._mouseDown = false; /** Treat touch end like mouse up */
         }
         if (e.touches.length === 1) {
-            // Prepare for possible single touch movement
+            /** Prepare for possible single touch movement */
             this._touchStartX = e.touches[0].clientX;
             this._touchStartY = e.touches[0].clientY;
         }
