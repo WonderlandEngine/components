@@ -11,7 +11,7 @@ const tempVec = [0, 0, 0];
 /**
  * OrbitalCamera component allows the user to orbit around a target point, which
  * is the position of the object itself. It rotates at the specified distance.
- *  
+ *
  * @remarks
  * The component works using mouse or touch. Therefor it does not work in VR.
  */
@@ -202,30 +202,31 @@ export class OrbitalCamera extends Component {
     };
 
     private _onTouchMove = (e: TouchEvent) => {
-        if (this.active && this._mouseDown) {
-            e.preventDefault(); // to prevent moving the page
-            if (e.touches.length === 1) {
-                const deltaX = e.touches[0].clientX - this._touchStartX;
-                const deltaY = e.touches[0].clientY - this._touchStartY;
+        if (!this.active || !this._mouseDown) {
+            return;
+        }
+        e.preventDefault(); // to prevent moving the page
+        if (e.touches.length === 1) {
+            const deltaX = e.touches[0].clientX - this._touchStartX;
+            const deltaY = e.touches[0].clientY - this._touchStartY;
 
-                this._azimuthSpeed = -(deltaX * this.xSensitivity);
-                this._polarSpeed = deltaY * this.ySensitivity;
+            this._azimuthSpeed = -(deltaX * this.xSensitivity);
+            this._polarSpeed = deltaY * this.ySensitivity;
 
-                this._touchStartX = e.touches[0].clientX;
-                this._touchStartY = e.touches[0].clientY;
-            } else if (e.touches.length === 2) {
-                // Handle pinch zoom
-                const currentPinchDistance = this._getDistanceBetweenTouches(e.touches);
-                const pinchScale = this._initialPinchDistance / currentPinchDistance;
+            this._touchStartX = e.touches[0].clientX;
+            this._touchStartY = e.touches[0].clientY;
+        } else if (e.touches.length === 2) {
+            // Handle pinch zoom
+            const currentPinchDistance = this._getDistanceBetweenTouches(e.touches);
+            const pinchScale = this._initialPinchDistance / currentPinchDistance;
 
-                this.radial *= pinchScale;
-                this.radial = Math.min(this.maxZoom, Math.max(this.minZoom, this.radial));
+            this.radial *= pinchScale;
+            this.radial = Math.min(this.maxZoom, Math.max(this.minZoom, this.radial));
 
-                this._updateCamera();
+            this._updateCamera();
 
-                // Update initial pinch distance for next move
-                this._initialPinchDistance = currentPinchDistance;
-            }
+            // Update initial pinch distance for next move
+            this._initialPinchDistance = currentPinchDistance;
         }
     };
 
