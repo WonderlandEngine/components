@@ -6,6 +6,15 @@ const preventDefault = (e: Event) => {
     e.preventDefault();
 };
 
+const tempVec = [0, 0, 0];
+
+/**
+ * OrbitalCamera component allows the user to orbit around a target point, which
+ * is the position of the object itself. It rotates at the specified distance.
+ *  
+ * @remarks
+ * The component works using mouse or touch. Therefor it does not work in VR.
+ */
 export class OrbitalCamera extends Component {
     static TypeName = 'orbital-camera';
 
@@ -61,11 +70,11 @@ export class OrbitalCamera extends Component {
 
         canvas.addEventListener('mousemove', this.onMouseMove);
         if (this.mouseButtonIndex === 2) {
-            canvas.addEventListener('contextmenu', preventDefault, false);
+            canvas.addEventListener('contextmenu', preventDefault, {passive: false});
         }
         canvas.addEventListener('mousedown', this.onMouseDown);
         canvas.addEventListener('mouseup', this.onMouseUp);
-        canvas.addEventListener('wheel', this.onMouseScroll);
+        canvas.addEventListener('wheel', this.onMouseScroll, {passive: false});
 
         canvas.addEventListener('touchstart', this.onTouchStart, {passive: false});
         canvas.addEventListener('touchmove', this.onTouchMove, {passive: false});
@@ -77,7 +86,7 @@ export class OrbitalCamera extends Component {
 
         canvas.removeEventListener('mousemove', this.onMouseMove);
         if (this.mouseButtonIndex === 2) {
-            canvas.removeEventListener('contextmenu', preventDefault, false);
+            canvas.removeEventListener('contextmenu', preventDefault);
         }
         canvas.removeEventListener('mousedown', this.onMouseDown);
         canvas.removeEventListener('mouseup', this.onMouseUp);
@@ -121,17 +130,24 @@ export class OrbitalCamera extends Component {
         }
     }
 
+    /**
+     * Update the camera position based on the current azimuth,
+     * polar and radial values
+     */
     private updateCamera() {
-        this.object.setPositionWorld([
-            this.radial * Math.sin(deg2rad(this.azimuth)) * Math.cos(deg2rad(this.polar)),
-            this.radial * Math.sin(deg2rad(this.polar)),
-            this.radial * Math.cos(deg2rad(this.azimuth)) * Math.cos(deg2rad(this.polar)),
-        ]);
+        const azimuthInRadians = deg2rad(this.azimuth);
+        const polarInRadians = deg2rad(this.polar);
+
+        tempVec[0] = this.radial * Math.sin(azimuthInRadians) * Math.cos(polarInRadians);
+        tempVec[1] = this.radial * Math.sin(polarInRadians);
+        tempVec[2] = this.radial * Math.cos(azimuthInRadians) * Math.cos(polarInRadians);
+
+        this.object.setPositionWorld(tempVec);
         this.object.translateWorld(this.origin);
         this.object.lookAt(this.origin);
     }
 
-    // Mouse Event Handlers
+    /* Mouse Event Handlers */
 
     private onMouseDown = (e: MouseEvent) => {
         if (e.button === this.mouseButtonIndex) {
@@ -161,13 +177,15 @@ export class OrbitalCamera extends Component {
     };
 
     private onMouseScroll = (e: WheelEvent) => {
+        e.preventDefault(); // to prevent scrolling
+
         this.radial *= 1 - e.deltaY * this.zoomSensitivity * -0.001;
         this.radial = Math.min(this.maxZoom, Math.max(this.minZoom, this.radial));
 
         this.updateCamera();
     };
 
-    // Touch event handlers
+    /* Touch event handlers */
 
     private onTouchStart = (e: TouchEvent) => {
         if (e.touches.length === 1) {
@@ -185,6 +203,7 @@ export class OrbitalCamera extends Component {
 
     private onTouchMove = (e: TouchEvent) => {
         if (this.active && this.mouseDown) {
+            e.preventDefault(); // to prevent moving the page
             if (e.touches.length === 1) {
                 const deltaX = e.touches[0].clientX - this.touchStartX;
                 const deltaY = e.touches[0].clientY - this.touchStartY;
@@ -221,7 +240,11 @@ export class OrbitalCamera extends Component {
         }
     };
 
-    // Helper function to calculate the distance between two touch points
+    /**
+     * Helper function to calculate the distance between two touch points
+     * @param touches list of touch points
+     * @returns distance between the two touch points
+     */
     private getDistanceBetweenTouches(touches: TouchList): number {
         const dx = touches[0].clientX - touches[1].clientX;
         const dy = touches[0].clientY - touches[1].clientY;
