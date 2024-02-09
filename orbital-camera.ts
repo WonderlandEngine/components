@@ -46,7 +46,7 @@ export class OrbitalCamera extends Component {
     zoomSensitivity = 0.02;
 
     @property.float(0.9)
-    decelerationFactor = 0.9;
+    damping = 0.9;
 
     private _mouseDown: boolean = false;
     private _origin = [0, 0, 0];
@@ -109,8 +109,8 @@ export class OrbitalCamera extends Component {
     update(): void {
         if (!this._mouseDown) {
             // Apply deceleration only when the user is not actively dragging
-            this._azimuthSpeed *= this.decelerationFactor;
-            this._polarSpeed *= this.decelerationFactor;
+            this._azimuthSpeed *= this.damping;
+            this._polarSpeed *= this.damping;
 
             // Stop completely if the speed is very low to avoid endless tiny movements
             if (Math.abs(this._azimuthSpeed) < 0.01) this._azimuthSpeed = 0;
