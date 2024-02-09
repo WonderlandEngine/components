@@ -48,85 +48,85 @@ export class OrbitalCamera extends Component {
     @property.float(0.9)
     decelerationFactor = 0.9;
 
-    private mouseDown: boolean = false;
-    private origin = [0, 0, 0];
-    private azimuth = 0;
-    private polar = 45;
+    private _mouseDown: boolean = false;
+    private _origin = [0, 0, 0];
+    private _azimuth = 0;
+    private _polar = 45;
 
-    private initialPinchDistance: number = 0;
-    private touchStartX: number = 0;
-    private touchStartY: number = 0;
+    private _initialPinchDistance: number = 0;
+    private _touchStartX: number = 0;
+    private _touchStartY: number = 0;
 
-    private azimuthSpeed: number = 0;
-    private polarSpeed: number = 0;
+    private _azimuthSpeed: number = 0;
+    private _polarSpeed: number = 0;
 
     start(): void {
-        this.object.getPositionWorld(this.origin);
-        this.updateCamera();
+        this.object.getPositionWorld(this._origin);
+        this._updateCamera();
     }
 
     onActivate(): void {
         const canvas = this.engine.canvas;
 
-        canvas.addEventListener('mousemove', this.onMouseMove);
+        canvas.addEventListener('mousemove', this._onMouseMove);
         if (this.mouseButtonIndex === 2) {
             canvas.addEventListener('contextmenu', preventDefault, {passive: false});
         }
-        canvas.addEventListener('mousedown', this.onMouseDown);
-        canvas.addEventListener('mouseup', this.onMouseUp);
-        canvas.addEventListener('wheel', this.onMouseScroll, {passive: false});
+        canvas.addEventListener('mousedown', this._onMouseDown);
+        canvas.addEventListener('mouseup', this._onMouseUp);
+        canvas.addEventListener('wheel', this._onMouseScroll, {passive: false});
 
-        canvas.addEventListener('touchstart', this.onTouchStart, {passive: false});
-        canvas.addEventListener('touchmove', this.onTouchMove, {passive: false});
-        canvas.addEventListener('touchend', this.onTouchEnd);
+        canvas.addEventListener('touchstart', this._onTouchStart, {passive: false});
+        canvas.addEventListener('touchmove', this._onTouchMove, {passive: false});
+        canvas.addEventListener('touchend', this._onTouchEnd);
     }
 
     onDeactivate(): void {
         const canvas = this.engine.canvas;
 
-        canvas.removeEventListener('mousemove', this.onMouseMove);
+        canvas.removeEventListener('mousemove', this._onMouseMove);
         if (this.mouseButtonIndex === 2) {
             canvas.removeEventListener('contextmenu', preventDefault);
         }
-        canvas.removeEventListener('mousedown', this.onMouseDown);
-        canvas.removeEventListener('mouseup', this.onMouseUp);
-        canvas.removeEventListener('wheel', this.onMouseScroll);
+        canvas.removeEventListener('mousedown', this._onMouseDown);
+        canvas.removeEventListener('mouseup', this._onMouseUp);
+        canvas.removeEventListener('wheel', this._onMouseScroll);
 
-        canvas.removeEventListener('touchstart', this.onTouchStart);
-        canvas.removeEventListener('touchmove', this.onTouchMove);
-        canvas.removeEventListener('touchend', this.onTouchEnd);
+        canvas.removeEventListener('touchstart', this._onTouchStart);
+        canvas.removeEventListener('touchmove', this._onTouchMove);
+        canvas.removeEventListener('touchend', this._onTouchEnd);
 
         // Reset state to make sure nothing gets stuck
-        this.mouseDown = false;
-        this.initialPinchDistance = 0;
-        this.touchStartX = 0;
-        this.touchStartY = 0;
+        this._mouseDown = false;
+        this._initialPinchDistance = 0;
+        this._touchStartX = 0;
+        this._touchStartY = 0;
 
-        this.azimuthSpeed = 0;
-        this.polarSpeed = 0;
+        this._azimuthSpeed = 0;
+        this._polarSpeed = 0;
     }
 
     update(): void {
-        if (!this.mouseDown) {
+        if (!this._mouseDown) {
             // Apply deceleration only when the user is not actively dragging
-            this.azimuthSpeed *= this.decelerationFactor;
-            this.polarSpeed *= this.decelerationFactor;
+            this._azimuthSpeed *= this.decelerationFactor;
+            this._polarSpeed *= this.decelerationFactor;
 
             // Stop completely if the speed is very low to avoid endless tiny movements
-            if (Math.abs(this.azimuthSpeed) < 0.01) this.azimuthSpeed = 0;
-            if (Math.abs(this.polarSpeed) < 0.01) this.polarSpeed = 0;
+            if (Math.abs(this._azimuthSpeed) < 0.01) this._azimuthSpeed = 0;
+            if (Math.abs(this._polarSpeed) < 0.01) this._polarSpeed = 0;
         }
 
         // Apply the speed to the camera angles
-        this.azimuth += this.azimuthSpeed;
-        this.polar += this.polarSpeed;
+        this._azimuth += this._azimuthSpeed;
+        this._polar += this._polarSpeed;
 
         // Clamp the polar angle
-        this.polar = Math.min(this.maxElevation, Math.max(this.minElevation, this.polar));
+        this._polar = Math.min(this.maxElevation, Math.max(this.minElevation, this._polar));
 
         // Update the camera if there's any speed
-        if (this.azimuthSpeed !== 0 || this.polarSpeed !== 0) {
-            this.updateCamera();
+        if (this._azimuthSpeed !== 0 || this._polarSpeed !== 0) {
+            this._updateCamera();
         }
     }
 
@@ -134,24 +134,24 @@ export class OrbitalCamera extends Component {
      * Update the camera position based on the current azimuth,
      * polar and radial values
      */
-    private updateCamera() {
-        const azimuthInRadians = deg2rad(this.azimuth);
-        const polarInRadians = deg2rad(this.polar);
+    private _updateCamera() {
+        const azimuthInRadians = deg2rad(this._azimuth);
+        const polarInRadians = deg2rad(this._polar);
 
         tempVec[0] = this.radial * Math.sin(azimuthInRadians) * Math.cos(polarInRadians);
         tempVec[1] = this.radial * Math.sin(polarInRadians);
         tempVec[2] = this.radial * Math.cos(azimuthInRadians) * Math.cos(polarInRadians);
 
         this.object.setPositionWorld(tempVec);
-        this.object.translateWorld(this.origin);
-        this.object.lookAt(this.origin);
+        this.object.translateWorld(this._origin);
+        this.object.lookAt(this._origin);
     }
 
     /* Mouse Event Handlers */
 
-    private onMouseDown = (e: MouseEvent) => {
+    private _onMouseDown = (e: MouseEvent) => {
         if (e.button === this.mouseButtonIndex) {
-            this.mouseDown = true;
+            this._mouseDown = true;
             document.body.style.cursor = 'grabbing';
             if (e.button === 1) {
                 e.preventDefault(); // to prevent scrolling
@@ -160,83 +160,83 @@ export class OrbitalCamera extends Component {
         }
     };
 
-    private onMouseUp = (e: MouseEvent) => {
+    private _onMouseUp = (e: MouseEvent) => {
         if (e.button === this.mouseButtonIndex) {
-            this.mouseDown = false;
+            this._mouseDown = false;
             document.body.style.cursor = 'initial';
         }
     };
 
-    private onMouseMove = (e: MouseEvent) => {
-        if (this.active && this.mouseDown) {
-            if (this.active && this.mouseDown) {
-                this.azimuthSpeed = -(e.movementX * this.xSensitivity);
-                this.polarSpeed = e.movementY * this.ySensitivity;
+    private _onMouseMove = (e: MouseEvent) => {
+        if (this.active && this._mouseDown) {
+            if (this.active && this._mouseDown) {
+                this._azimuthSpeed = -(e.movementX * this.xSensitivity);
+                this._polarSpeed = e.movementY * this.ySensitivity;
             }
         }
     };
 
-    private onMouseScroll = (e: WheelEvent) => {
+    private _onMouseScroll = (e: WheelEvent) => {
         e.preventDefault(); // to prevent scrolling
 
         this.radial *= 1 - e.deltaY * this.zoomSensitivity * -0.001;
         this.radial = Math.min(this.maxZoom, Math.max(this.minZoom, this.radial));
 
-        this.updateCamera();
+        this._updateCamera();
     };
 
     /* Touch event handlers */
 
-    private onTouchStart = (e: TouchEvent) => {
+    private _onTouchStart = (e: TouchEvent) => {
         if (e.touches.length === 1) {
             e.preventDefault(); // to prevent scrolling and allow us to track touch movement
 
-            this.touchStartX = e.touches[0].clientX;
-            this.touchStartY = e.touches[0].clientY;
-            this.mouseDown = true; // Treat touch like mouse down
+            this._touchStartX = e.touches[0].clientX;
+            this._touchStartY = e.touches[0].clientY;
+            this._mouseDown = true; // Treat touch like mouse down
         } else if (e.touches.length === 2) {
             // Calculate initial pinch distance
-            this.initialPinchDistance = this.getDistanceBetweenTouches(e.touches);
+            this._initialPinchDistance = this._getDistanceBetweenTouches(e.touches);
             e.preventDefault(); // Prevent default pinch actions
         }
     };
 
-    private onTouchMove = (e: TouchEvent) => {
-        if (this.active && this.mouseDown) {
+    private _onTouchMove = (e: TouchEvent) => {
+        if (this.active && this._mouseDown) {
             e.preventDefault(); // to prevent moving the page
             if (e.touches.length === 1) {
-                const deltaX = e.touches[0].clientX - this.touchStartX;
-                const deltaY = e.touches[0].clientY - this.touchStartY;
+                const deltaX = e.touches[0].clientX - this._touchStartX;
+                const deltaY = e.touches[0].clientY - this._touchStartY;
 
-                this.azimuthSpeed = -(deltaX * this.xSensitivity);
-                this.polarSpeed = deltaY * this.ySensitivity;
+                this._azimuthSpeed = -(deltaX * this.xSensitivity);
+                this._polarSpeed = deltaY * this.ySensitivity;
 
-                this.touchStartX = e.touches[0].clientX;
-                this.touchStartY = e.touches[0].clientY;
+                this._touchStartX = e.touches[0].clientX;
+                this._touchStartY = e.touches[0].clientY;
             } else if (e.touches.length === 2) {
                 // Handle pinch zoom
-                const currentPinchDistance = this.getDistanceBetweenTouches(e.touches);
-                const pinchScale = this.initialPinchDistance / currentPinchDistance;
+                const currentPinchDistance = this._getDistanceBetweenTouches(e.touches);
+                const pinchScale = this._initialPinchDistance / currentPinchDistance;
 
                 this.radial *= pinchScale;
                 this.radial = Math.min(this.maxZoom, Math.max(this.minZoom, this.radial));
 
-                this.updateCamera();
+                this._updateCamera();
 
                 // Update initial pinch distance for next move
-                this.initialPinchDistance = currentPinchDistance;
+                this._initialPinchDistance = currentPinchDistance;
             }
         }
     };
 
-    private onTouchEnd = (e: TouchEvent) => {
+    private _onTouchEnd = (e: TouchEvent) => {
         if (e.touches.length < 2) {
-            this.mouseDown = false; // Treat touch end like mouse up
+            this._mouseDown = false; // Treat touch end like mouse up
         }
         if (e.touches.length === 1) {
             // Prepare for possible single touch movement
-            this.touchStartX = e.touches[0].clientX;
-            this.touchStartY = e.touches[0].clientY;
+            this._touchStartX = e.touches[0].clientX;
+            this._touchStartY = e.touches[0].clientY;
         }
     };
 
@@ -245,7 +245,7 @@ export class OrbitalCamera extends Component {
      * @param touches list of touch points
      * @returns distance between the two touch points
      */
-    private getDistanceBetweenTouches(touches: TouchList): number {
+    private _getDistanceBetweenTouches(touches: TouchList): number {
         const dx = touches[0].clientX - touches[1].clientX;
         const dy = touches[0].clientY - touches[1].clientY;
         return Math.sqrt(dx * dx + dy * dy);
