@@ -1,6 +1,6 @@
 {
     "name": "@wonderlandengine/components",
-    "version": "1.0.7",
+    "version": "1.1.0",
     "description": "Wonderland Engine's official component library.",
     "author": "Wonderland GmbH",
     "license": "MIT",
@@ -14,7 +14,7 @@
         "test": "npm run build && web-test-runner",
         "test:single": "npm run test -- --files",
         "test:watch": "npm run test -- --watch",
-        "prepublishOnly": "npm run build",
+        "prepack": "npm run build",
         "pretty": "prettier --config ./.prettierrc.json --write ./src"
     },
     "repository": {
@@ -45,7 +45,7 @@
         "howler": "^2.2.1"
     },
     "peerDependencies": {
-        "@wonderlandengine/api": "^1.0.0"
+        "@wonderlandengine/api": "^1.1.0"
     },
     "devDependencies": {
         "@esm-bundle/chai": "^4.3.4-fix.0",
