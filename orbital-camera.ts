@@ -188,7 +188,6 @@ export class OrbitalCamera extends Component {
         const polarDeg = 90 - rad2deg(polar);
         this._azimuth = azimuthDeg;
         this._polar = polarDeg;
-        console.log(this._origin);
     }
 
     /**
