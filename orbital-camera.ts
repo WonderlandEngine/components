@@ -174,13 +174,12 @@ export class OrbitalCamera extends Component {
         const centerOfOrbit = this._origin as vec3;
 
         // Compute the direction vector
-        const direction = vec3.create();
-        vec3.subtract(direction, cameraPosition, centerOfOrbit);
-        vec3.normalize(direction, direction);
+        vec3.subtract(tempVec3, cameraPosition, centerOfOrbit);
+        vec3.normalize(tempVec3, tempVec3);
         // Compute the azimuth angle (in radians)
-        const azimuth = Math.atan2(direction[0], direction[2]);
+        const azimuth = Math.atan2(tempVec3[0], tempVec3[2]);
         // Compute the polar angle (in radians)
-        const polar = Math.acos(direction[1]);
+        const polar = Math.acos(tempVec3[1]);
         const azimuthDeg = rad2deg(azimuth);
         // Polar is inverted to match the orbital camera
         const polarDeg = 90 - rad2deg(polar);
