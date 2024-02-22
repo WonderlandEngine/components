@@ -64,8 +64,11 @@ export class OrbitalCamera extends Component {
     private _azimuthSpeed: number = 0;
     private _polarSpeed: number = 0;
 
-    start(): void {
+    init() {
         this.object.getPositionWorld(this._origin);
+    }
+
+    start(): void {
         this._updateCamera();
     }
 
@@ -185,6 +188,7 @@ export class OrbitalCamera extends Component {
         const polarDeg = 90 - rad2deg(polar);
         this._azimuth = azimuthDeg;
         this._polar = polarDeg;
+        console.log(this._origin);
     }
 
     /**
