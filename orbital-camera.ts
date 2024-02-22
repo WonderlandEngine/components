@@ -1,12 +1,16 @@
 import {Component} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
-import {deg2rad} from './utils/utils.js';
+import {deg2rad, rad2deg} from './utils/utils.js';
+import {quat, vec3} from 'gl-matrix';
 
 const preventDefault = (e: Event) => {
     e.preventDefault();
 };
 
 const tempVec = [0, 0, 0];
+const tempquat = quat.create();
+const tempquat2 = quat.create();
+const tempVec3 = vec3.create();
 
 /**
  * OrbitalCamera component allows the user to orbit around a target point, which
@@ -107,15 +111,13 @@ export class OrbitalCamera extends Component {
     }
 
     update(): void {
-        if (!this._mouseDown) {
-            /** Apply deceleration only when the user is not actively dragging */
-            this._azimuthSpeed *= this.damping;
-            this._polarSpeed *= this.damping;
+        /** Always apply damping, because there's no event for stop moving */
+        this._azimuthSpeed *= this.damping;
+        this._polarSpeed *= this.damping;
 
-            /** Stop completely if the speed is very low to avoid endless tiny movements */
-            if (Math.abs(this._azimuthSpeed) < 0.01) this._azimuthSpeed = 0;
-            if (Math.abs(this._polarSpeed) < 0.01) this._polarSpeed = 0;
-        }
+        /** Stop completely if the speed is very low to avoid endless tiny movements */
+        if (Math.abs(this._azimuthSpeed) < 0.01) this._azimuthSpeed = 0;
+        if (Math.abs(this._polarSpeed) < 0.01) this._polarSpeed = 0;
 
         /** Apply the speed to the camera angles */
         this._azimuth += this._azimuthSpeed;
@@ -128,6 +130,62 @@ export class OrbitalCamera extends Component {
         if (this._azimuthSpeed !== 0 || this._polarSpeed !== 0) {
             this._updateCamera();
         }
+    }
+
+    /**
+     * Get the closest position to the given position on the orbit sphere of the camera.
+     * This can be used to get a position and rotation to transition to.
+     *
+     * You pass this a position object. The method calculates the closest positition and updates the position parameter.
+     * It also sets the rotation parameter to reflect the rotate the camera will have when it is on the orbit sphere,
+     * pointing towards the center.
+     * @param position the position to get the closest position to
+     * @param rotation the rotation to get the closest position to
+     */
+    getClosestPosition(position: vec3, rotation: quat) {
+        // It's a bit hacky, but the easiest way to get the rotation of the camera is just briefly
+        // change the rotation to look at the center and then get the rotation.
+        this.object.getRotationWorld(tempquat);
+        this.object.lookAt(this._origin);
+        this.object.getRotationWorld(tempquat2);
+
+        if (quat.dot(tempquat, tempquat2) < 0) {
+            quat.scale(tempquat2, tempquat2, -1); // Negate to ensure shortest path
+        }
+        this.object.setRotationWorld(tempquat);
+
+        // Calculate the direction from the center of orbit to the current camera position
+        const directionToCamera = vec3.create();
+        vec3.subtract(directionToCamera, position, this._origin as vec3);
+        vec3.normalize(directionToCamera, directionToCamera);
+        // Scale this direction by the radius of your orbital sphere to get the nearest point on the sphere
+        const nearestPointOnSphere = vec3.create();
+        vec3.scale(nearestPointOnSphere, directionToCamera, this.radial);
+        vec3.add(nearestPointOnSphere, nearestPointOnSphere, this._origin as vec3);
+        vec3.copy(position, nearestPointOnSphere);
+        quat.copy(rotation, tempquat2);
+    }
+
+    /**
+     * Set the camera position based on the given position and calculate the rotation.
+     * @param cameraPosition the position to set the camera to
+     */
+    setPosition(cameraPosition: vec3) {
+        const centerOfOrbit = this._origin as vec3;
+
+        // Compute the direction vector
+        const direction = vec3.create();
+        vec3.subtract(direction, cameraPosition, centerOfOrbit);
+        vec3.normalize(direction, direction);
+        // Compute the azimuth angle (in radians)
+        const azimuth = Math.atan2(direction[0], direction[2]);
+        // Compute the polar angle (in radians)
+        const polar = Math.acos(direction[1]);
+        const azimuthDeg = rad2deg(azimuth);
+        // Polar is inverted to match the orbital camera
+        const polarDeg = 90 - rad2deg(polar);
+        this._azimuth = azimuthDeg;
+        this._polar = polarDeg;
     }
 
     /**
@@ -190,7 +248,7 @@ export class OrbitalCamera extends Component {
     private _onTouchStart = (e: TouchEvent) => {
         if (e.touches.length === 1) {
             /** to prevent scrolling and allow us to track touch movement */
-            e.preventDefault(); 
+            e.preventDefault();
 
             this._touchStartX = e.touches[0].clientX;
             this._touchStartY = e.touches[0].clientY;
