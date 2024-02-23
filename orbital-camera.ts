@@ -1,12 +1,16 @@
 import {Component} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
-import {deg2rad} from './utils/utils.js';
+import {deg2rad, rad2deg} from './utils/utils.js';
+import {quat, vec3} from 'gl-matrix';
 
 const preventDefault = (e: Event) => {
     e.preventDefault();
 };
 
 const tempVec = [0, 0, 0];
+const tempquat = quat.create();
+const tempquat2 = quat.create();
+const tempVec3 = vec3.create();
 
 /**
  * OrbitalCamera component allows the user to orbit around a target point, which
@@ -60,8 +64,11 @@ export class OrbitalCamera extends Component {
     private _azimuthSpeed: number = 0;
     private _polarSpeed: number = 0;
 
-    start(): void {
+    init() {
         this.object.getPositionWorld(this._origin);
+    }
+
+    start(): void {
         this._updateCamera();
     }
 
@@ -96,7 +103,7 @@ export class OrbitalCamera extends Component {
         canvas.removeEventListener('touchmove', this._onTouchMove);
         canvas.removeEventListener('touchend', this._onTouchEnd);
 
-        /** Reset state to make sure nothing gets stuck */
+        /* Reset state to make sure nothing gets stuck */
         this._mouseDown = false;
         this._initialPinchDistance = 0;
         this._touchStartX = 0;
@@ -107,27 +114,81 @@ export class OrbitalCamera extends Component {
     }
 
     update(): void {
-        if (!this._mouseDown) {
-            /** Apply deceleration only when the user is not actively dragging */
-            this._azimuthSpeed *= this.damping;
-            this._polarSpeed *= this.damping;
+        /* Always apply damping, because there's no event for stop moving */
+        this._azimuthSpeed *= this.damping;
+        this._polarSpeed *= this.damping;
 
-            /** Stop completely if the speed is very low to avoid endless tiny movements */
-            if (Math.abs(this._azimuthSpeed) < 0.01) this._azimuthSpeed = 0;
-            if (Math.abs(this._polarSpeed) < 0.01) this._polarSpeed = 0;
-        }
+        /* Stop completely if the speed is very low to avoid endless tiny movements */
+        if (Math.abs(this._azimuthSpeed) < 0.01) this._azimuthSpeed = 0;
+        if (Math.abs(this._polarSpeed) < 0.01) this._polarSpeed = 0;
 
-        /** Apply the speed to the camera angles */
+        /* Apply the speed to the camera angles */
         this._azimuth += this._azimuthSpeed;
         this._polar += this._polarSpeed;
 
-        /** Clamp the polar angle */
+        /* Clamp the polar angle */
         this._polar = Math.min(this.maxElevation, Math.max(this.minElevation, this._polar));
 
-        /** Update the camera if there's any speed */
+        /* Update the camera if there's any speed */
         if (this._azimuthSpeed !== 0 || this._polarSpeed !== 0) {
             this._updateCamera();
         }
+    }
+
+    /**
+     * Get the closest position to the given position on the orbit sphere of the camera.
+     * This can be used to get a position and rotation to transition to.
+     *
+     * You pass this a position object. The method calculates the closest positition and updates the position parameter.
+     * It also sets the rotation parameter to reflect the rotate the camera will have when it is on the orbit sphere,
+     * pointing towards the center.
+     * @param position the position to get the closest position to
+     * @param rotation the rotation to get the closest position to
+     */
+    getClosestPosition(position: vec3, rotation: quat) {
+        /* It's a bit hacky, but the easiest way to get the rotation of the camera is just briefly
+         change the rotation to look at the center and then get the rotation. */
+        this.object.getRotationWorld(tempquat);
+        this.object.lookAt(this._origin);
+        this.object.getRotationWorld(tempquat2);
+
+        if (quat.dot(tempquat, tempquat2) < 0) {
+            quat.scale(tempquat2, tempquat2, -1); /* Negate to ensure shortest path */
+        }
+        this.object.setRotationWorld(tempquat);
+
+        /* Calculate the direction from the center of orbit to the current camera position */
+        const directionToCamera = vec3.create();
+        vec3.subtract(directionToCamera, position, this._origin as vec3);
+        vec3.normalize(directionToCamera, directionToCamera);
+        
+        /* Scale this direction by the radius of your orbital sphere to get the nearest point on the sphere */
+        const nearestPointOnSphere = vec3.create();
+        vec3.scale(nearestPointOnSphere, directionToCamera, this.radial);
+        vec3.add(nearestPointOnSphere, nearestPointOnSphere, this._origin as vec3);
+        vec3.copy(position, nearestPointOnSphere);
+        quat.copy(rotation, tempquat2);
+    }
+
+    /**
+     * Set the camera position based on the given position and calculate the rotation.
+     * @param cameraPosition the position to set the camera to
+     */
+    setPosition(cameraPosition: vec3) {
+        const centerOfOrbit = this._origin as vec3;
+
+        /* Compute the direction vector */
+        vec3.subtract(tempVec3, cameraPosition, centerOfOrbit);
+        vec3.normalize(tempVec3, tempVec3);
+        /* Compute the azimuth angle (in radians) */
+        const azimuth = Math.atan2(tempVec3[0], tempVec3[2]);
+        /* Compute the polar angle (in radians) */
+        const polar = Math.acos(tempVec3[1]);
+        const azimuthDeg = rad2deg(azimuth);
+        /* Polar is inverted to match the orbital camera */
+        const polarDeg = 90 - rad2deg(polar);
+        this._azimuth = azimuthDeg;
+        this._polar = polarDeg;
     }
 
     /**
@@ -154,7 +215,7 @@ export class OrbitalCamera extends Component {
             this._mouseDown = true;
             document.body.style.cursor = 'grabbing';
             if (e.button === 1) {
-                e.preventDefault(); /** to prevent scrolling */
+                e.preventDefault(); /* to prevent scrolling */
                 return false;
             }
         }
@@ -177,7 +238,7 @@ export class OrbitalCamera extends Component {
     };
 
     private _onMouseScroll = (e: WheelEvent) => {
-        e.preventDefault(); /** to prevent scrolling */
+        e.preventDefault(); /* to prevent scrolling */
 
         this.radial *= 1 - e.deltaY * this.zoomSensitivity * -0.001;
         this.radial = Math.min(this.maxZoom, Math.max(this.minZoom, this.radial));
@@ -189,16 +250,16 @@ export class OrbitalCamera extends Component {
 
     private _onTouchStart = (e: TouchEvent) => {
         if (e.touches.length === 1) {
-            /** to prevent scrolling and allow us to track touch movement */
-            e.preventDefault(); 
+            /* to prevent scrolling and allow us to track touch movement */
+            e.preventDefault();
 
             this._touchStartX = e.touches[0].clientX;
             this._touchStartY = e.touches[0].clientY;
-            this._mouseDown = true; /** Treat touch like mouse down */
+            this._mouseDown = true; /* Treat touch like mouse down */
         } else if (e.touches.length === 2) {
-            /** Calculate initial pinch distance */
+            /* Calculate initial pinch distance */
             this._initialPinchDistance = this._getDistanceBetweenTouches(e.touches);
-            e.preventDefault(); /** Prevent default pinch actions */
+            e.preventDefault(); /* Prevent default pinch actions */
         }
     };
 
@@ -206,7 +267,7 @@ export class OrbitalCamera extends Component {
         if (!this.active || !this._mouseDown) {
             return;
         }
-        e.preventDefault(); /** to prevent moving the page */
+        e.preventDefault(); /* to prevent moving the page */
         if (e.touches.length === 1) {
             const deltaX = e.touches[0].clientX - this._touchStartX;
             const deltaY = e.touches[0].clientY - this._touchStartY;
@@ -217,7 +278,7 @@ export class OrbitalCamera extends Component {
             this._touchStartX = e.touches[0].clientX;
             this._touchStartY = e.touches[0].clientY;
         } else if (e.touches.length === 2) {
-            /** Handle pinch zoom */
+            /* Handle pinch zoom */
             const currentPinchDistance = this._getDistanceBetweenTouches(e.touches);
             const pinchScale = this._initialPinchDistance / currentPinchDistance;
 
@@ -226,17 +287,17 @@ export class OrbitalCamera extends Component {
 
             this._updateCamera();
 
-            /** Update initial pinch distance for next move */
+            /* Update initial pinch distance for next move */
             this._initialPinchDistance = currentPinchDistance;
         }
     };
 
     private _onTouchEnd = (e: TouchEvent) => {
         if (e.touches.length < 2) {
-            this._mouseDown = false; /** Treat touch end like mouse up */
+            this._mouseDown = false; /* Treat touch end like mouse up */
         }
         if (e.touches.length === 1) {
-            /** Prepare for possible single touch movement */
+            /* Prepare for possible single touch movement */
             this._touchStartX = e.touches[0].clientX;
             this._touchStartY = e.touches[0].clientY;
         }
