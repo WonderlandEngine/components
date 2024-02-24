@@ -57,65 +57,67 @@ export class Trail extends Component {
     @property.float(1.0)
     resetThreshold = 0.5;
 
-    private currentPointIndex = 0;
-    private timeTillNext = 0;
-    private points: Array<vec3> = [];
-    private trailContainer: Object3D | null = null;
-    private meshComp: MeshComponent | null = null;
-    private mesh: Mesh | null = null;
-    private indexData: Uint32Array | null = null;
+    private _currentPointIndex = 0;
+    private _timeTillNext = 0;
+    private _points: Array<vec3> = [];
+    private _trailContainer: Object3D | null = null;
+    private _meshComp: MeshComponent | null = null;
+    private _mesh: Mesh | null = null;
+    private _indexData: Uint32Array | null = null;
 
     start() {
-        this.points = new Array(this.segments + 1);
-        for (let i = 0; i < this.points.length; ++i) {
-            this.points[i] = vec3.create();
+        this._points = new Array(this.segments + 1);
+        for (let i = 0; i < this._points.length; ++i) {
+            this._points[i] = vec3.create();
         }
 
         /* The points array is circular, so keep track of its head */
-        this.timeTillNext = this.interval;
+        this._timeTillNext = this.interval;
 
-        this.trailContainer = this.engine.scene.addObject();
+        this._trailContainer = this.engine.scene.addObject();
 
-        this.meshComp = this.trailContainer.addComponent('mesh')!;
-        this.meshComp.material = this.material;
+        this._meshComp = this._trailContainer.addComponent('mesh')!;
+        this._meshComp.material = this.material;
 
         /* Each point will have two vertices; one on either side */
-        const vertexCount = 2 * this.points.length;
+        const vertexCount = 2 * this._points.length;
         /* Each segment consists of two triangles */
-        this.indexData = new Uint32Array(6 * this.segments);
+        this._indexData = new Uint32Array(6 * this.segments);
         for (let i = 0, v = 0; i < vertexCount - 2; i += 2, v += 6) {
-            this.indexData
+            this._indexData
                 .subarray(v, v + 6)
                 .set([i + 1, i + 0, i + 2, i + 2, i + 3, i + 1]);
         }
 
-        this.mesh = new Mesh(this.engine, {
+        this._mesh = new Mesh(this.engine, {
             vertexCount: vertexCount,
-            indexData: this.indexData,
+            indexData: this._indexData,
             indexType: MeshIndexType.UnsignedInt,
         });
-        this.meshComp.mesh = this.mesh;
+        this._meshComp.mesh = this._mesh;
     }
 
     updateVertices() {
-        if (!this.mesh) return;
+        if (!this._mesh) return;
 
-        const positions = this.mesh.attribute(MeshAttribute.Position)!;
-        const texCoords = this.mesh.attribute(MeshAttribute.TextureCoordinate);
-        const normals = this.mesh.attribute(MeshAttribute.Normal);
+        const positions = this._mesh.attribute(MeshAttribute.Position)!;
+        const texCoords = this._mesh.attribute(MeshAttribute.TextureCoordinate);
+        const normals = this._mesh.attribute(MeshAttribute.Normal);
 
         vec3.set(direction, 0, 0, 0);
-        for (let i = 0; i < this.points.length; ++i) {
-            const curr = this.points[(this.currentPointIndex + i + 1) % this.points.length];
-            const next = this.points[(this.currentPointIndex + i + 2) % this.points.length];
+        for (let i = 0; i < this._points.length; ++i) {
+            const curr =
+                this._points[(this._currentPointIndex + i + 1) % this._points.length];
+            const next =
+                this._points[(this._currentPointIndex + i + 2) % this._points.length];
 
             /* The last point has no next, so re-use the direction of the previous segment */
-            if (i !== this.points.length - 1) {
+            if (i !== this._points.length - 1) {
                 vec3.sub(direction, next, curr);
             }
             vec3.cross(offset, UP, direction);
             vec3.normalize(offset, offset);
-            const timeFraction = 1.0 - this.timeTillNext / this.interval;
+            const timeFraction = 1.0 - this._timeTillNext / this.interval;
             const fraction = (i - timeFraction) / this.segments;
             vec3.scale(offset, offset, ((this.taper ? fraction : 1.0) * this.width) / 2.0);
 
@@ -143,46 +145,46 @@ export class Trail extends Component {
         }
 
         /* Notify WLE that the mesh has changed */
-        this.mesh.update();
+        this._mesh.update();
     }
 
     resetTrail() {
-        this.object.getPositionWorld(this.points[0]);
-        for (let i = 1; i < this.points.length; ++i) {
-            vec3.copy(this.points[i], this.points[0]);
+        this.object.getPositionWorld(this._points[0]);
+        for (let i = 1; i < this._points.length; ++i) {
+            vec3.copy(this._points[i], this._points[0]);
         }
-        this.currentPointIndex = 0;
+        this._currentPointIndex = 0;
 
-        this.timeTillNext = this.interval;
+        this._timeTillNext = this.interval;
     }
 
     update(dt: number) {
-        this.timeTillNext -= dt;
+        this._timeTillNext -= dt;
         if (dt > this.resetThreshold) {
             this.resetTrail();
         }
 
-        if (this.timeTillNext < 0) {
-            this.currentPointIndex = (this.currentPointIndex + 1) % this.points.length;
-            this.timeTillNext = (this.timeTillNext % this.interval) + this.interval;
+        if (this._timeTillNext < 0) {
+            this._currentPointIndex = (this._currentPointIndex + 1) % this._points.length;
+            this._timeTillNext = (this._timeTillNext % this.interval) + this.interval;
         }
-        this.object.getPositionWorld(this.points[this.currentPointIndex]);
+        this.object.getPositionWorld(this._points[this._currentPointIndex]);
 
         this.updateVertices();
     }
 
     onActivate() {
         this.resetTrail();
-        if (this.meshComp) this.meshComp.active = true;
+        if (this._meshComp) this._meshComp.active = true;
     }
 
     onDeactivate() {
-        if (this.meshComp) this.meshComp.active = false;
+        if (this._meshComp) this._meshComp.active = false;
     }
 
     onDestroy() {
-        if (this.trailContainer) this.trailContainer.destroy();
-        if (this.meshComp) this.meshComp.destroy();
-        if (this.mesh) this.mesh.destroy();
+        if (this._trailContainer) this._trailContainer.destroy();
+        if (this._meshComp) this._meshComp.destroy();
+        if (this._mesh) this._mesh.destroy();
     }
 }
