@@ -1,9 +1,20 @@
-import {Component, Type, Mesh, MeshIndexType, MeshAttribute} from '@wonderlandengine/api';
+import {
+    Component,
+    Mesh,
+    MeshIndexType,
+    MeshAttribute,
+    Material,
+    Object3D,
+    MeshComponent,
+} from '@wonderlandengine/api';
+import {property} from '@wonderlandengine/api/decorators.js';
 import {vec3} from 'gl-matrix';
 
 const direction = vec3.create();
 const offset = vec3.create();
 const normal = vec3.create();
+
+const UP = vec3.fromValues(0, 1, 0);
 
 /**
  * Dynamic mesh-based trail
@@ -18,40 +29,54 @@ const normal = vec3.create();
 export class Trail extends Component {
     static TypeName = 'trail';
 
-    static Properties = {
-        /** The material to apply to the trail mesh */
-        material: {type: Type.Material},
-        /** The number of segments in the trail mesh */
-        segments: {type: Type.Int, default: 50},
-        /** The time interval before recording a new point */
-        interval: {type: Type.Float, default: 0.1},
-        /** The width of the trail (in world space) */
-        width: {type: Type.Float, default: 1.0},
-        /** Whether or not the trail should taper off */
-        taper: {type: Type.Bool, default: true},
-        /**
-         * The maximum delta time in seconds, above which the trail resets.
-         * This prevents the trail from jumping around when updates happen
-         * infrequently (e.g. when the tab doesn't have focus).
-         */
-        resetThreshold: {type: Type.Float, default: 0.5},
-    };
+    /** The material to apply to the trail mesh */
+    @property.material()
+    material: Material | null = null;
 
-    init() {
+    /** The number of segments in the trail mesh */
+    @property.int(50)
+    segments = 50;
+
+    /** The time interval before recording a new point */
+    @property.float(50)
+    interval = 0.1;
+
+    /** The width of the trail (in world space) */
+    @property.float(1.0)
+    width = 1.0;
+
+    /** Whether or not the trail should taper off */
+    @property.bool(true)
+    taper = true;
+
+    /**
+     * The maximum delta time in seconds, above which the trail resets.
+     * This prevents the trail from jumping around when updates happen
+     * infrequently (e.g. when the tab doesn't have focus).
+     */
+    @property.float(1.0)
+    resetThreshold = 0.5;
+
+    private currentPointIndex = 0;
+    private timeTillNext = 0;
+    private points: Array<vec3> = [];
+    private trailContainer: Object3D | null = null;
+    private meshComp: MeshComponent | null = null;
+    private mesh: Mesh | null = null;
+    private indexData: Uint32Array | null = null;
+
+    start() {
         this.points = new Array(this.segments + 1);
         for (let i = 0; i < this.points.length; ++i) {
             this.points[i] = vec3.create();
         }
-        /* The points array is circular, so keep track of its head */
-        this.currentPointOffset = 0;
-        this.up = [0, 1, 0];
-        this.timeTillNext = this.interval;
-    }
 
-    start() {
+        /* The points array is circular, so keep track of its head */
+        this.timeTillNext = this.interval;
+
         this.trailContainer = this.engine.scene.addObject();
 
-        this.meshComp = this.trailContainer.addComponent('mesh');
+        this.meshComp = this.trailContainer.addComponent('mesh')!;
         this.meshComp.material = this.material;
 
         /* Each point will have two vertices; one on either side */
@@ -73,7 +98,9 @@ export class Trail extends Component {
     }
 
     updateVertices() {
-        const positions = this.mesh.attribute(MeshAttribute.Position);
+        if (!this.mesh) return;
+
+        const positions = this.mesh.attribute(MeshAttribute.Position)!;
         const texCoords = this.mesh.attribute(MeshAttribute.TextureCoordinate);
         const normals = this.mesh.attribute(MeshAttribute.Normal);
 
@@ -86,7 +113,7 @@ export class Trail extends Component {
             if (i !== this.points.length - 1) {
                 vec3.sub(direction, next, curr);
             }
-            vec3.cross(offset, this.up, direction);
+            vec3.cross(offset, UP, direction);
             vec3.normalize(offset, offset);
             const timeFraction = 1.0 - this.timeTillNext / this.interval;
             const fraction = (i - timeFraction) / this.segments;
@@ -120,7 +147,7 @@ export class Trail extends Component {
     }
 
     resetTrail() {
-        this.object.getTranslationWorld(this.points[0]);
+        this.object.getPositionWorld(this.points[0]);
         for (let i = 1; i < this.points.length; ++i) {
             vec3.copy(this.points[i], this.points[0]);
         }
@@ -129,7 +156,7 @@ export class Trail extends Component {
         this.timeTillNext = this.interval;
     }
 
-    update(dt) {
+    update(dt: number) {
         this.timeTillNext -= dt;
         if (dt > this.resetThreshold) {
             this.resetTrail();
@@ -139,17 +166,23 @@ export class Trail extends Component {
             this.currentPointIndex = (this.currentPointIndex + 1) % this.points.length;
             this.timeTillNext = (this.timeTillNext % this.interval) + this.interval;
         }
-        this.object.getTranslationWorld(this.points[this.currentPointIndex]);
+        this.object.getPositionWorld(this.points[this.currentPointIndex]);
 
         this.updateVertices();
     }
 
     onActivate() {
         this.resetTrail();
+        if (this.meshComp) this.meshComp.active = true;
+    }
+
+    onDeactivate() {
+        if (this.meshComp) this.meshComp.active = false;
     }
 
     onDestroy() {
-        this.trailContainer.destroy();
-        this.mesh.destroy();
+        if (this.trailContainer) this.trailContainer.destroy();
+        if (this.meshComp) this.meshComp.destroy();
+        if (this.mesh) this.mesh.destroy();
     }
 }
