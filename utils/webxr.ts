@@ -15,7 +15,7 @@ export function setXRRigidTransformLocal(o: Object3D, transform: XRRigidTransfor
     tempVec[1] = t.y;
     tempVec[2] = t.z;
 
-    o.resetTranslationRotation();
-    o.transformLocal.set(tempQuat);
-    o.translate(tempVec);
+    o.resetPositionRotation();
+    o.setRotationLocal(tempQuat);
+    o.translateLocal(tempVec);
 }

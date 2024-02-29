@@ -22,3 +22,5 @@ export * from './vr-mode-active-switch.js';
 export * from './plane-detection.js';
 export * from './vrm.js';
 export * from './wasd-controls.js';
+export * from './input-profile.js';
+export * from './orbital-camera.js';

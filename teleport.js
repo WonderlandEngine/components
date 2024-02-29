@@ -154,9 +154,9 @@ export class TeleportComponent extends Component {
 
         if (this.isIndicating && this.teleportIndicatorMeshObject && this.input) {
             const origin = this._tempVec0;
-            quat2.getTranslation(origin, this.object.transformWorld);
+            this.object.getPositionWorld(origin);
 
-            const direction = this.object.getForward(this._tempVec);
+            const direction = this.object.getForwardWorld(this._tempVec);
             let rayHit = (this.rayHit =
                 this.rayCastMode == 0
                     ? this.engine.scene.rayCast(origin, direction, 1 << this.floorGroup)
@@ -174,7 +174,7 @@ export class TeleportComponent extends Component {
                     Math.atan2(this._currentStickAxes[0], this._currentStickAxes[1]);
                 this._currentIndicatorRotation =
                     this._getCamRotation() + (this._extraRotation - Math.PI);
-                this.teleportIndicatorMeshObject.resetTranslationRotation();
+                this.teleportIndicatorMeshObject.resetPositionRotation();
                 this.teleportIndicatorMeshObject.rotateAxisAngleRad(
                     [0, 1, 0],
                     this._currentIndicatorRotation
@@ -253,7 +253,7 @@ export class TeleportComponent extends Component {
     }
     onMousePressed() {
         let origin = [0, 0, 0];
-        quat2.getTranslation(origin, this.cam.transformWorld);
+        this.cam.getPositionWorld(origin);
 
         const direction = this.cam.getForward(this._tempVec);
         let rayHit = (this.rayHit =
@@ -274,7 +274,7 @@ export class TeleportComponent extends Component {
             this._currentIndicatorRotation =
                 -Math.sign(direction[2]) * Math.acos(direction[0]) - Math.PI * 0.5;
 
-            this.teleportIndicatorMeshObject.resetTranslationRotation();
+            this.teleportIndicatorMeshObject.resetPositionRotation();
             this.teleportIndicatorMeshObject.rotateAxisAngleRad(
                 [0, 1, 0],
                 this._currentIndicatorRotation
@@ -300,21 +300,21 @@ export class TeleportComponent extends Component {
         const p1 = this._tempVec0;
 
         if (this.session) {
-            this.eyeLeft.getTranslationWorld(p);
-            this.eyeRight.getTranslationWorld(p1);
+            this.eyeLeft.getPositionWorld(p);
+            this.eyeRight.getPositionWorld(p1);
 
             vec3.add(p, p, p1);
             vec3.scale(p, p, 0.5);
         } else {
-            this.cam.getTranslationWorld(p);
+            this.cam.getPositionWorld(p);
         }
 
-        this.camRoot.getTranslationWorld(p1);
+        this.camRoot.getPositionWorld(p1);
         vec3.sub(p, p1, p);
         p[0] += newPosition[0];
         p[1] = newPosition[1];
         p[2] += newPosition[2];
 
-        this.camRoot.setTranslationWorld(p);
+        this.camRoot.setPositionWorld(p);
     }
 }

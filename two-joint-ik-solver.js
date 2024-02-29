@@ -1,38 +1,50 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component, Property} from '@wonderlandengine/api';
+import {vec3} from 'gl-matrix';
 
-import {vec3, quat} from 'gl-matrix';
-
-Math.clamp = function (v, a, b) {
+function clamp(v, a, b) {
     return Math.max(a, Math.min(v, b));
-};
+}
 
-// From http://theorangeduck.com/page/simple-two-joint
+const rootScaling = new Float32Array(3);
+const tempQuat = new Float32Array(4);
+
+const middlePos = new Float32Array(3);
+const endPos = new Float32Array(3);
+const targetPos = new Float32Array(3);
+const helperPos = new Float32Array(3);
+
+const rootTransform = new Float32Array(8);
+const middleTransform = new Float32Array(8);
+const endTransform = new Float32Array(8);
+
+/**
+ * Solve inverse kinematics for a two joint chains
+ *
+ * Inspired by http://theorangeduck.com/page/simple-two-joint
+ */
 const twoJointIK = (function () {
-    let ta = new Float32Array(3);
-    let ca = new Float32Array(3);
-    let ba = new Float32Array(3);
-    let ab = new Float32Array(3);
-    let cb = new Float32Array(3);
+    const ta = new Float32Array(3);
+    const ca = new Float32Array(3);
+    const ba = new Float32Array(3);
+    const ab = new Float32Array(3);
+    const cb = new Float32Array(3);
 
-    let axis0 = new Float32Array(3);
-    let axis1 = new Float32Array(3);
+    const axis0 = new Float32Array(3);
+    const axis1 = new Float32Array(3);
 
-    let temp = new Float32Array(4);
+    const temp = new Float32Array(3);
 
-    let r0 = new Float32Array(4);
-    let r1 = new Float32Array(4);
-    let r2 = new Float32Array(4);
-
-    return function (a_lr, b_lr, a, b, c, t, eps, a_gr, b_gr, helper) {
-        vec3.sub(ba, b, a);
+    return function (root, middle, b, c, targetPos, eps, helper) {
+        /* a = [0, 0, 0], since everything is computed in root-space */
+        ba.set(b);
         const lab = vec3.length(ba);
         vec3.sub(ta, b, c);
         const lcb = vec3.length(ta);
-        vec3.sub(ta, t, a);
-        const lat = Math.clamp(vec3.length(ta), eps, lab + lcb - eps);
+        ta.set(targetPos);
+        const lat = clamp(vec3.length(ta), eps, lab + lcb - eps);
 
-        vec3.sub(ca, c, a);
-        vec3.sub(ab, a, b);
+        ca.set(c);
+        vec3.scale(ab, b, -1);
         vec3.sub(cb, c, b);
 
         vec3.normalize(ca, ca);
@@ -41,112 +53,106 @@ const twoJointIK = (function () {
         vec3.normalize(cb, cb);
         vec3.normalize(ta, ta);
 
-        const ac_ab_0 = Math.acos(Math.clamp(vec3.dot(ca, ba), -1, 1));
-        const ba_bc_0 = Math.acos(Math.clamp(vec3.dot(ab, cb), -1, 1));
-        const ac_at_0 = Math.acos(Math.clamp(vec3.dot(ca, ta), -1, 1));
+        /* Supposedly numerical errors can cause the dot to go out of -1, 1 range */
+        const ac_ab_0 = Math.acos(clamp(vec3.dot(ca, ba), -1, 1));
+        const ba_bc_0 = Math.acos(clamp(vec3.dot(ab, cb), -1, 1));
+        const ac_at_0 = Math.acos(clamp(vec3.dot(ca, ta), -1, 1));
 
         const ac_ab_1 = Math.acos(
-            Math.clamp((lcb * lcb - lab * lab - lat * lat) / (-2 * lab * lat), -1, 1)
+            clamp((lcb * lcb - lab * lab - lat * lat) / (-2 * lab * lat), -1, 1)
         );
         const ba_bc_1 = Math.acos(
-            Math.clamp((lat * lat - lab * lab - lcb * lcb) / (-2 * lab * lcb), -1, 1)
+            clamp((lat * lat - lab * lab - lcb * lcb) / (-2 * lab * lcb), -1, 1)
         );
-
-        vec3.sub(ca, c, a);
-        vec3.sub(ba, b, a);
-        vec3.sub(ta, t, a);
-
-        vec3.cross(axis0, ca, ba);
-        vec3.cross(axis1, ca, ta);
 
         if (helper) {
             vec3.sub(ba, helper, b);
-            vec3.transformQuat(ba, [0, 0, -1], b_gr);
-        } else {
-            vec3.sub(ba, b, a);
+            vec3.normalize(ba, ba);
         }
 
-        const l = vec3.length(axis0);
-        if (l == 0) {
-            axis0.set([1, 0, 0]);
-        } else {
-            vec3.scale(axis0, axis0, 1 / l);
-        }
+        vec3.cross(axis0, ca, ba);
+        vec3.normalize(axis0, axis0);
+
+        vec3.cross(axis1, c, targetPos);
         vec3.normalize(axis1, axis1);
 
-        quat.conjugate(a_gr, a_gr);
-        quat.setAxisAngle(r0, vec3.transformQuat(temp, axis0, a_gr), ac_ab_1 - ac_ab_0);
-        quat.setAxisAngle(r2, vec3.transformQuat(temp, axis1, a_gr), ac_at_0);
-        quat.mul(a_lr, a_lr, quat.mul(temp, r0, r2));
-        quat.normalize(a_lr, a_lr);
+        middle.transformVectorInverseLocal(temp, axis0);
 
-        quat.conjugate(b_gr, b_gr);
-        quat.setAxisAngle(r1, vec3.transformQuat(temp, axis0, b_gr), ba_bc_1 - ba_bc_0);
-        quat.mul(b_lr, b_lr, r1);
-        quat.normalize(b_lr, b_lr);
+        root.rotateAxisAngleRadObject(axis1, ac_at_0);
+        root.rotateAxisAngleRadObject(axis0, ac_ab_1 - ac_ab_0);
+        middle.rotateAxisAngleRadObject(axis0, ba_bc_1 - ba_bc_0);
     };
 })();
 
 /**
- * Inverse Kinematics for two-joint chains (e.g. knees or ellbows)
+ * Inverse kinematics for two-joint chains (e.g. knees or elbows)
  */
 export class TwoJointIkSolver extends Component {
     static TypeName = 'two-joint-ik-solver';
     static Properties = {
         /** Root bone, never moves */
-        root: {type: Type.Object},
+        root: Property.object(),
         /** Bone attached to the root */
-        middle: {type: Type.Object},
+        middle: Property.object(),
         /** Bone attached to the middle */
-        end: {type: Type.Object},
+        end: Property.object(),
         /** Target the joins should reach for */
-        target: {type: Type.Object},
+        target: Property.object(),
+        /** Flag for copying rotation from target to end */
+        copyTargetRotation: Property.bool(true),
         /** Helper object to use to determine joint rotation axis */
-        helper: {type: Type.Object},
+        helper: Property.object(),
     };
 
-    init() {
-        this.pos = new Float32Array(3 * 7);
-        this.p = [
-            this.pos.subarray(0, 3),
-            this.pos.subarray(3, 6),
-            this.pos.subarray(6, 9),
-            this.pos.subarray(9, 12),
-            this.pos.subarray(12, 15),
-            this.pos.subarray(15, 18),
-            this.pos.subarray(18, 21),
-        ];
+    time = 0;
+
+    start() {
+        this.root.getTransformLocal(rootTransform);
+        this.middle.getTransformLocal(middleTransform);
+        this.end.getTransformLocal(endTransform);
     }
 
-    update() {
-        const p = this.p;
-        this.root.getTranslationWorld(p[0]);
-        this.middle.getTranslationWorld(p[1]);
-        this.end.getTranslationWorld(p[2]);
-        this.target.getTranslationWorld(p[3]);
-        const tla = p[4];
-        const tlb = p[5];
-        this.root.getTranslationLocal(tla);
-        this.middle.getTranslationLocal(tlb);
-        if (this.helper) this.helper.getTranslationWorld(p[6]);
+    update(dt) {
+        this.time += dt;
+
+        /* Reset to original pose for stability */
+        this.root.setTransformLocal(rootTransform);
+        this.middle.setTransformLocal(middleTransform);
+        this.end.setTransformLocal(endTransform);
+
+        this.root.getScalingWorld(rootScaling);
+
+        /* Get joint positions in root-space */
+        this.middle.getPositionLocal(middlePos);
+
+        this.end.getPositionLocal(endPos);
+        this.middle.transformPointLocal(endPos, endPos);
+
+        if (this.helper) {
+            /* Get helper position in root space */
+            this.helper.getPositionWorld(helperPos);
+            this.root.transformPointInverseWorld(helperPos, helperPos);
+            vec3.div(helperPos, helperPos, rootScaling);
+        }
+
+        /* Get target position in root space */
+        this.target.getPositionWorld(targetPos);
+        this.root.transformPointInverseWorld(targetPos, targetPos);
+        vec3.div(targetPos, targetPos, rootScaling);
 
         twoJointIK(
-            this.root.transformLocal,
-            this.middle.transformLocal,
-            p[0],
-            p[1],
-            p[2],
-            p[3],
+            this.root,
+            this.middle,
+            middlePos,
+            endPos,
+            targetPos,
             0.01,
-            this.root.transformWorld.subarray(0, 4),
-            this.middle.transformWorld.subarray(0, 4),
-            this.helper ? p[6] : null
+            this.helper ? helperPos : null,
+            this.time
         );
 
-        this.root.setTranslationLocal(tla);
-        this.middle.setTranslationLocal(tlb);
-
-        this.root.setDirty();
-        this.middle.setDirty();
+        if (this.copyTargetRotation) {
+            this.end.setRotationWorld(this.target.getRotationWorld(tempQuat));
+        }
     }
 }

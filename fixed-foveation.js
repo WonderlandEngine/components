@@ -15,7 +15,7 @@ export class FixedFoveation extends Component {
     };
 
     start() {
-        this.onSessionStartCallback = this.setFixedFoveation().bind(this);
+        this.onSessionStartCallback = this.setFixedFoveation.bind(this);
     }
 
     onActivate() {
