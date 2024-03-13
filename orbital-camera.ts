@@ -80,7 +80,6 @@ export class OrbitalCamera extends Component {
             canvas.addEventListener('contextmenu', preventDefault, {passive: false});
         }
         canvas.addEventListener('mousedown', this._onMouseDown);
-        window.addEventListener('mouseup', this._onMouseUp);
         canvas.addEventListener('wheel', this._onMouseScroll, {passive: false});
 
         canvas.addEventListener('touchstart', this._onTouchStart, {passive: false});
@@ -91,12 +90,10 @@ export class OrbitalCamera extends Component {
     onDeactivate(): void {
         const canvas = this.engine.canvas;
 
-        canvas.removeEventListener('mousemove', this._onMouseMove);
         if (this.mouseButtonIndex === 2) {
             canvas.removeEventListener('contextmenu', preventDefault);
         }
         canvas.removeEventListener('mousedown', this._onMouseDown);
-        canvas.removeEventListener('mouseup', this._onMouseUp);
         canvas.removeEventListener('wheel', this._onMouseScroll);
 
         canvas.removeEventListener('touchstart', this._onTouchStart);
@@ -211,6 +208,9 @@ export class OrbitalCamera extends Component {
     /* Mouse Event Handlers */
 
     private _onMouseDown = (e: MouseEvent) => {
+        window.addEventListener('mouseup', this._onMouseUp);
+        this.engine.canvas.addEventListener('mousemove', this._onMouseMove);
+
         if (e.button === this.mouseButtonIndex) {
             this._mouseDown = true;
             document.body.style.cursor = 'grabbing';
@@ -222,6 +222,8 @@ export class OrbitalCamera extends Component {
     };
 
     private _onMouseUp = (e: MouseEvent) => {
+        window.removeEventListener('mouseup', this._onMouseUp);
+        this.engine.canvas.removeEventListener('mousemove', this._onMouseMove);
         if (e.button === this.mouseButtonIndex) {
             this._mouseDown = false;
             document.body.style.cursor = 'initial';
