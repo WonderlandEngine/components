@@ -75,12 +75,12 @@ export class OrbitalCamera extends Component {
     onActivate(): void {
         const canvas = this.engine.canvas;
 
-        canvas.addEventListener('mousemove', this._onMouseMove);
+        window.addEventListener('mousemove', this._onMouseMove);
         if (this.mouseButtonIndex === 2) {
             canvas.addEventListener('contextmenu', preventDefault, {passive: false});
         }
         canvas.addEventListener('mousedown', this._onMouseDown);
-        canvas.addEventListener('mouseup', this._onMouseUp);
+        window.addEventListener('mouseup', this._onMouseUp);
         canvas.addEventListener('wheel', this._onMouseScroll, {passive: false});
 
         canvas.addEventListener('touchstart', this._onTouchStart, {passive: false});
