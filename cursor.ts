@@ -511,7 +511,7 @@ export class Cursor extends Component {
 
     /**
      * Update mouse position in non-VR mode and raycast for new position
-     * @returns @ref WL.RayHit for new position.
+     * @returns @ref RayHit for new position.
      */
     private updateMousePos(e: PointerEvent | MouseEvent) {
         this._lastPointerPos[0] = e.clientX;

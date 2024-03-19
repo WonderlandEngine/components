@@ -62,7 +62,7 @@ const tempVec1 = vec3.create();
  * Allows displaying hands either as sphere-joints or skinned mesh.
  *
  * To react to grabbing, use `this.isGrabbing()`. For other gestures, refer
- * to `this.joints` - an array of [WL.Object](/jsapi/object) and use the joint
+ * to `this.joints` - an array of [Object3D](/jsapi/object3d) and use the joint
  * indices listed [in the WebXR Hand Input specification](https://immersive-web.github.io/webxr-hand-input/#skeleton-joints-section).
  *
  * It is often desired to use either hand tracking or controllers, not both.
