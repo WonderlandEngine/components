@@ -1,8 +1,11 @@
 import {Component} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
-import {vec3} from 'gl-matrix';
+import {quat} from 'gl-matrix';
 
 const preventDefault = (e: Event) => { e.preventDefault(); };
+
+const TEMP_ROT = new Float32Array(4);
+const ROT_MUL = 180 / Math.PI / 100;
 
 /**
  * Controls the camera orientation through mouse movement.
@@ -33,10 +36,6 @@ export class MouseLookComponent extends Component {
 
     private currentRotationY = 0;
     private currentRotationX = 0;
-    private origin = new Float32Array(3);
-    private parentOrigin = new Float32Array(3);
-    private rotationX = 0;
-    private rotationY = 0;
     private mouseDown = false;
 
     onActivate() {
@@ -103,28 +102,13 @@ export class MouseLookComponent extends Component {
 
     onMouseMove = (e: MouseEvent) => {
         if (this.active && (this.mouseDown || !this.requireMouseDown)) {
-            this.rotationY = (-this.sensitity * e.movementX) / 100;
-            this.rotationX = (-this.sensitity * e.movementY) / 100;
-
-            this.currentRotationX += this.rotationX;
-            this.currentRotationY += this.rotationY;
-
-            /* 1.507 = PI/2 = 90° */
-            this.currentRotationX = Math.min(1.507, this.currentRotationX);
-            this.currentRotationX = Math.max(-1.507, this.currentRotationX);
-
-            this.object.getPositionWorld(this.origin);
-
-            const parent = this.object.parent;
-            if (parent) {
-                parent.getPositionWorld(this.parentOrigin);
-                vec3.sub(this.origin, this.origin, this.parentOrigin);
-            }
-
-            this.object.resetPositionRotation();
-            this.object.rotateAxisAngleRadLocal([1, 0, 0], this.currentRotationX);
-            this.object.rotateAxisAngleRadLocal([0, 1, 0], this.currentRotationY);
-            this.object.translateLocal(this.origin);
+            this.currentRotationX += (-this.sensitity * e.movementY) * ROT_MUL;
+            this.currentRotationY += (-this.sensitity * e.movementX) * ROT_MUL;
+            // 89 deg instead of 90 so that there are no camera glitches
+            // when looking straight down/up
+            this.currentRotationX = Math.max(-89, Math.min(89, this.currentRotationX));
+            quat.fromEuler(TEMP_ROT, this.currentRotationX, this.currentRotationY, 0);
+            this.object.setRotationLocal(TEMP_ROT);
         }
     }
 }
