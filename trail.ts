@@ -184,7 +184,6 @@ export class Trail extends Component {
 
     onDestroy() {
         if (this._trailContainer) this._trailContainer.destroy();
-        if (this._meshComp) this._meshComp.destroy();
         if (this._mesh) this._mesh.destroy();
     }
 }
