@@ -48,3 +48,7 @@ DEPLOY_FOLDER="../../some/deploy" npm run test:watch
 
 Wonderland Engine components TypeScript and JavaScript code is released under MIT license.
 The runtime and editor are licensed under the [Wonderland Engine EULA](https://wonderlandengine.com/eula)
+
+[npm]: https://img.shields.io/npm/v/@wonderlandengine/components
+[npm-downloads]: https://img.shields.io/npm/dw/@wonderlandengine/components
+[discord]: https://img.shields.io/discord/669166325456699392
