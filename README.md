@@ -1,5 +1,10 @@
 # Wonderland Engine Components
 
+[![Build & Test](https://github.com/WonderlandEngine/components/actions/workflows/npm-build.yml/badge.svg)](https://github.com/WonderlandEngine/components/actions/workflows/npm-build.yml)
+[![NPM Package][npm]](https://www.npmjs.com/package/@wonderlandengine/components)
+[![NPM Downloads][npm-downloads]](https://img.shields.io/npm/dw/@wonderlandengine/components)
+[![Discord][discord]](https://discord.wonderlandengine.com)
+
 Wonderland Engine's official component library.
 
 Learn more about Wonderland Engine at [https://wonderlandengine.com](https://wonderlandengine.com).
