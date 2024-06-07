@@ -1,4 +1,4 @@
-import {Component, Type} from '@wonderlandengine/api';
+import {Component, Type, GLTFExtensions} from '@wonderlandengine/api';
 
 import {vec3, mat4, quat, quat2} from 'gl-matrix';
 
