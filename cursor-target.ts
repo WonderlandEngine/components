@@ -5,10 +5,10 @@ import {Cursor, EventTypes} from './cursor.js';
  * Click/hover/move/button target for [cursor](#cursor).
  *
  * To trigger code when clicking, hovering, unhovering, moving cursor, pressing
- * cursor button or releasing cursor button, use `.addClickFunction(f)`,
- * `.addHoverFunction(f)`, `.addUnHoverFunction(f)`,
- * `.addMoveFunction(f)`, `.addDownFunction(f)` and
- * `.addUpFunction(f)` respectively with any `function f() {}`.
+ * cursor button, releasing cursor button or scrolling, use `.onClick.add(f)`,
+ * `.onHover.add(f)`, `.onUnHover.add(f)`, `.onMove.add(f)`, `.onDown.add(f)`,
+ * `.onUp.add(f)` and `.onScroll.add(f)` respectively with any
+ * `function f() {}`.
  *
  * To call members on a different component, you can set up a cursor target like
  * so:
@@ -45,6 +45,9 @@ import {Cursor, EventTypes} from './cursor.js';
  *
  * target.onUp.add(callback);
  * target.onUp.remove(callback);
+ *
+ * target.onScroll.add(callback);
+ * target.onScroll.remove(callback);
  * ```
  *
  * **Requirements:**
@@ -68,6 +71,8 @@ export class CursorTarget extends Component {
     onDown = new Emitter<[Object3D, Cursor, EventTypes?]>();
     /** Emitter for events when the user unpressed the select button on the target */
     onUp = new Emitter<[Object3D, Cursor, EventTypes?]>();
+    /** Emitter for events when the user scrolls on the target */
+    onScroll = new Emitter<[Object3D, Cursor, EventTypes?]>();
 
     /**
      * @deprecated Use the emitter instead.

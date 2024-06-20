@@ -16,7 +16,7 @@ const tempVec = new Float32Array(3);
 
 const ZERO = [0, 0, 0];
 
-export type EventTypes = PointerEvent | MouseEvent | XRInputSourceEvent;
+export type EventTypes = PointerEvent | MouseEvent | WheelEvent | XRInputSourceEvent;
 
 /** Global target for {@link Cursor} */
 class CursorTargetEmitters<T> {
@@ -32,7 +32,25 @@ class CursorTargetEmitters<T> {
     onDown = new Emitter<[T, Cursor, EventTypes?]>();
     /** Emitter for events when the user unpressed the select button on the target */
     onUp = new Emitter<[T, Cursor, EventTypes?]>();
+    /** Emitter for events when the user scrolls on the target */
+    onScroll = new Emitter<[T, Cursor, EventTypes?]>();
 }
+
+const TOUCHPAD_PROFILES = [
+    'generic-trigger-squeeze-touchpad-thumbstick',
+    'generic-trigger-touchpad-thumbstick',
+    'generic-trigger-squeeze-touchpad',
+    'generic-trigger-touchpad',
+    'generic-touchpad',
+    'generic-touchscreen',
+];
+
+const THUMBSTICK_PROFILES = [
+    'generic-trigger-squeeze-touchpad-thumbstick',
+    'generic-trigger-touchpad-thumbstick',
+    'generic-trigger-squeeze-thumbstick',
+    'generic-trigger-thumbstick',
+];
 
 /**
  * 3D cursor for desktop/mobile/VR.
@@ -82,6 +100,18 @@ export class Cursor extends Component {
     private _hitTestObject: Object3D | null = null;
 
     private _onSessionStartCallback: ((s: XRSession) => void) | null = null;
+
+    private _scrollDeltaX = 0;
+    private _scrollDeltaY = 0;
+    private _xrInput: XRInputSource | null = null;
+    private _xrLastHandedness: XRHandedness | null = null;
+    /**
+     * Which axes are used for scroll emulation:
+     * 0 - fallback: blend all axes together (0+1 and 2+3)
+     * 1 - touchpad: use axes 0 and 2
+     * 2 - thumbstick: use axes 1 and 3
+     */
+    private _xrScrollEmulationMode: number = 0;
 
     /**
      * Whether the cursor (and cursorObject) is visible, i.e. pointing at an object
@@ -151,6 +181,18 @@ export class Cursor extends Component {
     @property.bool(true)
     styleCursor: boolean = true;
 
+    /** Should scroll events be emulated with thumbsticks in VR? */
+    @property.bool(false)
+    emulateXRScroll!: boolean;
+
+    /** Emulated scroll speed in pixels */
+    @property.float(100.0)
+    emulatedXRScrollSpeed!: number;
+
+    /** Emulated scroll deadzone, in a range from 0.0 to 1.0 */
+    @property.float(0.1)
+    emulatedXRScrollDeadzone!: number;
+
     /**
      * Use WebXR hit-test if available.
      *
@@ -215,21 +257,65 @@ export class Cursor extends Component {
             const onPointerMove = this.onPointerMove.bind(this);
             const onPointerDown = this.onPointerDown.bind(this);
             const onPointerUp = this.onPointerUp.bind(this);
+            const onWheel = this.onWheel.bind(this);
 
             canvas.addEventListener('click', onClick);
             canvas.addEventListener('pointermove', onPointerMove);
             canvas.addEventListener('pointerdown', onPointerDown);
             canvas.addEventListener('pointerup', onPointerUp);
+            canvas.addEventListener('wheel', onWheel);
 
             this._onDeactivateCallbacks.push(() => {
                 canvas.removeEventListener('click', onClick);
                 canvas.removeEventListener('pointermove', onPointerMove);
                 canvas.removeEventListener('pointerdown', onPointerDown);
                 canvas.removeEventListener('pointerup', onPointerUp);
+                canvas.removeEventListener('wheel', onWheel);
             });
         }
 
         this._onViewportResize();
+    }
+
+    private onInputSourcesChange(e: XRInputSourceChangeEvent) {
+        let needsRecheck = false;
+        if (this._xrInput !== null) {
+            if (this._xrLastHandedness !== this.handedness) {
+                this.changeXRInputSource(null);
+                needsRecheck = true;
+            } else {
+                for (const removed of e.removed) {
+                    if (this._xrInput === removed) {
+                        this.changeXRInputSource(null);
+                        needsRecheck = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        this._xrLastHandedness = this.handedness as XRHandedness;
+
+        if (this._xrInput === null) {
+            for (const added of e.added) {
+                if (added.handedness === this.handedness) {
+                    this.changeXRInputSource(added);
+                    needsRecheck = false;
+                    return;
+                }
+            }
+        }
+
+        if (!(needsRecheck && this.engine.xr)) {
+            return;
+        }
+
+        for (const source of this.engine.xr.session.inputSources) {
+            if (source.handedness === this.handedness) {
+                this.changeXRInputSource(source);
+                return;
+            }
+        }
     }
 
     _setCursorRayTransform(hitPosition: vec3) {
@@ -257,7 +343,102 @@ export class Cursor extends Component {
         }
     }
 
-    update() {
+    private changeXRInputSource(source: XRInputSource | null): void {
+        this._xrLastHandedness = this.handedness as XRHandedness;
+        this._xrInput = source;
+
+        if (!source) {
+            return;
+        }
+
+        const gamepad = source.gamepad;
+        if (!gamepad) {
+            return;
+        }
+
+        // prefer left stick or touchpad, but fall back to primary/right stick.
+        // if it's not known which thumbsticks/touchpads are supported, then
+        // allow input from any axes
+        let fallback = true;
+        if (gamepad.mapping === 'xr-standard') {
+            // standard xr controller, try to match a generic profile
+            let touchpadProfile = false, thumbstickProfile = false;
+            for (const profile of source.profiles) {
+                if (TOUCHPAD_PROFILES.indexOf(profile) !== -1) {
+                    // prefer touchpad
+                    this._xrScrollEmulationMode = 1;
+                    fallback = false;
+                    touchpadProfile = true;
+                    break;
+                } else if (THUMBSTICK_PROFILES.indexOf(profile) !== -1) {
+                    // has thumbstick; will be ignored if touchpad profile is
+                    // also found
+                    thumbstickProfile = true;
+                }
+            }
+
+            // has no touchpad profile but has a thumbstick profile. prefer
+            // thumbstick
+            if (thumbstickProfile && !touchpadProfile) {
+                this._xrScrollEmulationMode = 2;
+                fallback = false;
+            }
+        }
+
+        // non-standard or unsupported xr standard controller, fall back to any
+        // axes
+        if (fallback) {
+            this._xrScrollEmulationMode = 0;
+        }
+    }
+
+    private emulateScrollAxis(axisIn: number): number {
+        if (Math.abs(axisIn) >= this.emulatedXRScrollDeadzone) {
+            return axisIn;
+        } else {
+            return 0;
+        }
+    }
+
+    private emulateScroll(dt: number, source: XRInputSource): boolean {
+        const gamepad = source.gamepad;
+        if (!gamepad) {
+            return false;
+        }
+
+        const axes = gamepad.axes;
+        let dx = 0, dy = 0;
+
+        // scroll depending on emulation mode
+        if (this._xrScrollEmulationMode === 0) {
+            // fallback
+            dx = this.emulateScrollAxis(axes[0]) + this.emulateScrollAxis(axes[2]);
+            dy = this.emulateScrollAxis(axes[1]) + this.emulateScrollAxis(axes[3]);
+        } else if (this._xrScrollEmulationMode === 1) {
+            // touchpad
+            dx = this.emulateScrollAxis(axes[0]);
+            dy = this.emulateScrollAxis(axes[1]);
+        } else {
+            // thumbstick
+            dx = this.emulateScrollAxis(axes[2]);
+            dy = this.emulateScrollAxis(axes[3]);
+        }
+
+        // apply speed and delta time multiplier
+        const effectiveSpeed = this.emulatedXRScrollSpeed * dt;
+        dx *= effectiveSpeed;
+        dy *= effectiveSpeed;
+
+        if (dx !== 0 || dy !== 0) {
+            this._scrollDeltaX = dx;
+            this._scrollDeltaY = dy;
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    update(dt: number) {
         /* If in VR, set the cursor ray based on object transform */
         /* Since Google Cardboard tap is registered as arTouchDown without a gamepad, we need to check for gamepad presence */
         if (
@@ -286,7 +467,31 @@ export class Cursor extends Component {
             this.updateDirection();
         }
 
-        this.rayCast(null, this.engine.xr?.frame);
+        /* Emulate XR scrolling */
+        if (this._xrLastHandedness !== this.handedness) {
+            this.changeXRInputSource(null);
+
+            if (this.engine.xr) {
+                for (const source of this.engine.xr.session.inputSources) {
+                    if (source.handedness === this.handedness) {
+                        this.changeXRInputSource(source);
+                    }
+                }
+            }
+        }
+
+        let doScroll = false;
+        if (this.emulateXRScroll && this.engine.xr) {
+            if (this._input) {
+                if (this._input.xrInputSource) {
+                    doScroll = this.emulateScroll(dt, this._input.xrInputSource);
+                }
+            } else if (this._xrInput) {
+                doScroll = this.emulateScroll(dt, this._xrInput);
+            }
+        }
+
+        this.rayCast(null, this.engine.xr?.frame, false, doScroll);
 
         if (this.cursorObject) {
             if (
@@ -304,7 +509,7 @@ export class Cursor extends Component {
 
     /* Returns the hovered cursor target, if available */
     private notify(
-        event: 'onHover' | 'onUnhover' | 'onClick' | 'onUp' | 'onDown' | 'onMove',
+        event: 'onHover' | 'onUnhover' | 'onClick' | 'onUp' | 'onDown' | 'onMove' | 'onScroll',
         originalEvent: EventTypes | null
     ) {
         const target = this.hoveringObject;
@@ -320,6 +525,7 @@ export class Cursor extends Component {
         rayHit: RayHit,
         hitTestResult: XRHitTestResult | null,
         doClick: boolean,
+        doScroll: boolean,
         originalEvent: EventTypes | null
     ) {
         /* Old API version does not return null for objects[0] if no hit */
@@ -354,6 +560,9 @@ export class Cursor extends Component {
 
             /* onClick for object */
             if (doClick) this.notify('onClick', originalEvent);
+
+            /* onScroll for object */
+            if (doScroll) this.notify('onScroll', originalEvent);
         } else if (this.hoveringReality) {
             /* onDown/onUp for hit test */
             if (this._isDown !== this._lastIsDown) {
@@ -367,6 +576,14 @@ export class Cursor extends Component {
             /* onClick for hit test */
             if (doClick)
                 this.hitTestTarget.onClick.notify(
+                    hitTestResult,
+                    this,
+                    originalEvent ?? undefined
+                );
+
+            /* onScroll for hit test */
+            if (doScroll)
+                this.hitTestTarget.onScroll.notify(
                     hitTestResult,
                     this,
                     originalEvent ?? undefined
@@ -421,16 +638,28 @@ export class Cursor extends Component {
         s.addEventListener('selectstart', onSelectStart);
         const onSelectEnd = this.onSelectEnd.bind(this);
         s.addEventListener('selectend', onSelectEnd);
+        const onInputSourcesChange = this.onInputSourcesChange.bind(this);
+        s.addEventListener('inputsourceschange', onInputSourcesChange);
 
         this._onDeactivateCallbacks.push(() => {
+            this.changeXRInputSource(null);
+
             if (!this.engine.xr) return;
             s.removeEventListener('select', onSelect);
             s.removeEventListener('selectstart', onSelectStart);
             s.removeEventListener('selectend', onSelectEnd);
+            s.removeEventListener('inputsourceschange', onInputSourcesChange);
         });
 
         /* After AR session was entered, the projection matrix changed */
         this._onViewportResize();
+
+        /* Get initial list of XR inputs */
+        for (const source of s.inputSources) {
+            if (source.handedness === this.handedness) {
+                this.changeXRInputSource(source);
+            }
+        }
     }
 
     onDeactivate() {
@@ -509,6 +738,32 @@ export class Cursor extends Component {
         this.rayCast(e);
     }
 
+    /** 'wheel' event listener */
+    onWheel(e: WheelEvent) {
+        let deltaX = e.deltaX;
+        let deltaY = e.deltaY;
+
+        // XXX on firefox, if deltaX/deltaY is checked before deltaMode, then
+        // the deltaMode SHOULD be in pixels. chromium-based browsers always use
+        // pixels
+        if (e.deltaMode === 1) {
+            // in lines despite checking deltaX/deltaY first. guess that a line
+            // is 16px tall
+            deltaX *= 16;
+            deltaY *= 16;
+        } else if (e.deltaMode === 2) {
+            // in pages despite checking deltaX/deltaY first. guess that a line
+            // is 128px tall
+            deltaX *= 128;
+            deltaY *= 128;
+        }
+
+        this._scrollDeltaX = deltaX;
+        this._scrollDeltaY = deltaY;
+
+        this.rayCast(e, null, false, true);
+    }
+
     /**
      * Update mouse position in non-VR mode and raycast for new position
      * @returns @ref RayHit for new position.
@@ -547,7 +802,8 @@ export class Cursor extends Component {
     private rayCast(
         originalEvent: EventTypes | null,
         frame: XRFrame | null = null,
-        doClick = false
+        doClick = false,
+        doScroll = false,
     ) {
         const rayHit =
             this.rayCastMode == 0
@@ -597,8 +853,22 @@ export class Cursor extends Component {
         }
         this.hoveringReality = hoveringReality;
 
-        this.hoverBehaviour(rayHit, hitTestResult, doClick, originalEvent);
+        this.hoverBehaviour(rayHit, hitTestResult, doClick, doScroll, originalEvent);
 
         return rayHit;
+    }
+
+    /**
+     * How much has been scrolled horizontally in pixels since the last frame
+     */
+    get scrollDeltaX() {
+        return this._scrollDeltaX;
+    }
+
+    /**
+     * How much has been scrolled vertically in pixels since the last frame
+     */
+    get scrollDeltaY() {
+        return this._scrollDeltaY;
     }
 }
