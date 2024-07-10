@@ -1,4 +1,4 @@
-import {Component, Type, GLTFExtensions} from '@wonderlandengine/api';
+import {Component, Property} from '@wonderlandengine/api';
 
 import {vec3, mat4, quat, quat2} from 'gl-matrix';
 
@@ -45,9 +45,9 @@ export class Vrm extends Component {
     static TypeName = 'vrm';
     static Properties = {
         /** URL to a VRM file to load */
-        src: {type: Type.String},
+        src: Property.string(),
         /** Object the VRM is looking at */
-        lookAtTarget: {type: Type.Object},
+        lookAtTarget: Property.object(),
     };
 
     /** Meta information about the VRM model */
@@ -182,7 +182,7 @@ export class Vrm extends Component {
 
     /**
      * Parses the VRM glTF extensions and initializes the vrm component.
-     * @param {GLTFExtensions} extensions The glTF extensions for the VRM model
+     * @param extensions The glTF extensions for the VRM model
      */
     _initializeVrm(extensions) {
         if (this._initialized) {
