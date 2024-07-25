@@ -71,7 +71,7 @@ export class MouseLookComponent extends Component {
 
         if (this.requireMouseDown && !this.pointerLockOnClick) {
             if (this.mouseButtonIndex === 2) {
-                document.removeEventListener('contextmenu', preventDefault, false);
+                canvas.removeEventListener('contextmenu', preventDefault, false);
             }
             canvas.removeEventListener('pointerdown', this.onPointerDown);
             canvas.removeEventListener('pointerup', this.onPointerUp);
@@ -98,41 +98,35 @@ export class MouseLookComponent extends Component {
 
     onPointerLockChange = () => {
         const canvas = this.engine.canvas;
-        if (document.pointerLockElement === canvas) {
-        } else {
-            this.mouseDown = false;
-            this.pointerLockCooldown = true;
-            document.body.style.cursor = 'initial';
+        if (document.pointerLockElement === canvas) return;
+        this.mouseDown = false;
+        this.pointerLockCooldown = true;
+        document.body.style.cursor = 'initial';
 
-            setTimeout(() => {
-                this.pointerLockCooldown = false;
-            }, 1500);
-        }
+        setTimeout(() => {
+            this.pointerLockCooldown = false;
+        }, 1500);
     };
 
     onPointerDown = (e: PointerEvent) => {
-        if (this.pointerLockCooldown) {
+        if (
+            this.pointerLockCooldown ||
+            !(e.button === this.mouseButtonIndex || e.pointerType === 'touch')
+        )
             return;
+        this.mouseDown = true;
+        document.body.style.cursor = 'grabbing';
+        if (e.button === 2) {
+            e.preventDefault();
         }
 
-        if (e.button === this.mouseButtonIndex || e.pointerType === 'touch') {
-            this.mouseDown = true;
-            document.body.style.cursor = 'grabbing';
-            if (e.button === 2) {
-                e.preventDefault();
-            }
-
-            if (
-                this.pointerLockOnClick &&
-                document.pointerLockElement !== this.engine.canvas
-            ) {
-                this.requestPointerLock();
-            }
-            if (e.button === 1) {
-                e.preventDefault();
-                /* Prevent scrolling */
-                return false;
-            }
+        if (this.pointerLockOnClick && document.pointerLockElement !== this.engine.canvas) {
+            this.requestPointerLock();
+        }
+        if (e.button === 1) {
+            e.preventDefault();
+            /* Prevent scrolling */
+            return false;
         }
     };
 
@@ -144,11 +138,7 @@ export class MouseLookComponent extends Component {
     };
 
     onPointerMove = (e: PointerEvent) => {
-        if (
-            this.active &&
-            (this.mouseDown || !this.requireMouseDown) &&
-            (!this.pointerLockOnClick || document.pointerLockElement === this.engine.canvas)
-        ) {
+        if (this.active && (this.mouseDown || !this.requireMouseDown)) {
             this.rotationY = (-this.sensitity * e.movementX) / 100;
             this.rotationX = (-this.sensitity * e.movementY) / 100;
 
