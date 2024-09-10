@@ -69,6 +69,7 @@ export class OrbitalCamera extends Component {
     }
 
     start(): void {
+        this._polar = Math.min(this.maxElevation, Math.max(this.minElevation, this._polar));
         this._updateCamera();
     }
 
@@ -78,7 +79,7 @@ export class OrbitalCamera extends Component {
         if (this.mouseButtonIndex === 2) {
             canvas.addEventListener('contextmenu', preventDefault, {passive: false});
         }
-        
+
         canvas.addEventListener('mousedown', this._onMouseDown);
         canvas.addEventListener('wheel', this._onMouseScroll, {passive: false});
 
@@ -159,7 +160,7 @@ export class OrbitalCamera extends Component {
         const directionToCamera = vec3.create();
         vec3.subtract(directionToCamera, position, this._origin as vec3);
         vec3.normalize(directionToCamera, directionToCamera);
-        
+
         /* Scale this direction by the radius of your orbital sphere to get the nearest point on the sphere */
         const nearestPointOnSphere = vec3.create();
         vec3.scale(nearestPointOnSphere, directionToCamera, this.radial);

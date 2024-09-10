@@ -180,7 +180,7 @@ export class InputProfile extends Component {
      * @param event The XR input source change event.
      * @hidden
      */
-    private _onInputSourcesChange(event: XRInputSourceChangeEvent) {
+    private _onInputSourcesChange(event: XRInputSourcesChangeEvent) {
         if (this._isModelLoaded() && !this.mapToDefaultController) {
             this._setComponentsActive(false);
         }
