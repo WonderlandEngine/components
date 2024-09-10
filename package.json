@@ -39,7 +39,7 @@
     ],
     "dependencies": {
         "@types/earcut": "^2.1.1",
-        "@types/webxr": "^0.5.0",
+        "@types/webxr": "^0.5.20",
         "earcut": "^2.2.4",
         "gl-matrix": "^3.3.0",
         "howler": "^2.2.1"
