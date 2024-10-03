@@ -57,17 +57,17 @@ export class CursorTarget extends Component {
     static Properties = {};
 
     /** Emitter for events when the target is hovered */
-    onHover = new Emitter<[Object3D, Cursor, EventTypes?]>();
+    onHover = new Emitter<[Object3D, Cursor | Component, EventTypes?]>();
     /** Emitter for events when the target is unhovered */
-    onUnhover = new Emitter<[Object3D, Cursor, EventTypes?]>();
+    onUnhover = new Emitter<[Object3D, Cursor | Component, EventTypes?]>();
     /** Emitter for events when the target is clicked */
-    onClick = new Emitter<[Object3D, Cursor, EventTypes?]>();
+    onClick = new Emitter<[Object3D, Cursor | Component, EventTypes?]>();
     /** Emitter for events when the cursor moves on the target */
-    onMove = new Emitter<[Object3D, Cursor, EventTypes?]>();
+    onMove = new Emitter<[Object3D, Cursor | Component, EventTypes?]>();
     /** Emitter for events when the user pressed the select button on the target */
-    onDown = new Emitter<[Object3D, Cursor, EventTypes?]>();
+    onDown = new Emitter<[Object3D, Cursor | Component, EventTypes?]>();
     /** Emitter for events when the user unpressed the select button on the target */
-    onUp = new Emitter<[Object3D, Cursor, EventTypes?]>();
+    onUp = new Emitter<[Object3D, Cursor | Component, EventTypes?]>();
 
     /**
      * @deprecated Use the emitter instead.
@@ -75,7 +75,7 @@ export class CursorTarget extends Component {
      * @example
      *    this.onHover.add(f);
      */
-    addHoverFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    addHoverFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onHover.add(f);
     }
 
@@ -85,7 +85,7 @@ export class CursorTarget extends Component {
      * @example
      *    this.onHover.remove(f);
      */
-    removeHoverFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    removeHoverFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onHover.remove(f);
     }
 
@@ -95,7 +95,7 @@ export class CursorTarget extends Component {
      * @example
      *    this.onUnhover.add(f);
      */
-    addUnHoverFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    addUnHoverFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onUnhover.add(f);
     }
 
@@ -105,7 +105,7 @@ export class CursorTarget extends Component {
      * @example
      *    this.onUnhover.remove(f);
      */
-    removeUnHoverFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    removeUnHoverFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onUnhover.remove(f);
     }
 
@@ -115,7 +115,7 @@ export class CursorTarget extends Component {
      * @example
      *    this.onClick.add(f);
      */
-    addClickFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    addClickFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onClick.add(f);
     }
 
@@ -125,7 +125,7 @@ export class CursorTarget extends Component {
      * @example
      *    component.onClick.remove(f);
      */
-    removeClickFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    removeClickFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onClick.remove(f);
     }
 
@@ -135,7 +135,7 @@ export class CursorTarget extends Component {
      * @example
      *    component.onMove.add(f);
      */
-    addMoveFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    addMoveFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onMove.add(f);
     }
 
@@ -145,7 +145,7 @@ export class CursorTarget extends Component {
      * @example
      *    component.onMove.remove(f);
      */
-    removeMoveFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    removeMoveFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onMove.remove(f);
     }
 
@@ -155,7 +155,7 @@ export class CursorTarget extends Component {
      * @example
      *    component.onDown.add(f);
      */
-    addDownFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    addDownFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onDown.add(f);
     }
 
@@ -165,7 +165,7 @@ export class CursorTarget extends Component {
      * @example
      *    component.onDown.remove(f);
      */
-    removeDownFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    removeDownFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onDown.remove(f);
     }
 
@@ -175,7 +175,7 @@ export class CursorTarget extends Component {
      * @example
      *    component.onUp.add(f);
      */
-    addUpFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    addUpFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onUp.add(f);
     }
 
@@ -185,7 +185,7 @@ export class CursorTarget extends Component {
      * @example
      *    component.onUp.remove(f);
      */
-    removeUpFunction(f: (object?: Object3D, cursor?: Cursor) => void) {
+    removeUpFunction(f: (object?: Object3D, cursor?: Cursor | Component) => void) {
         this.onUp.remove(f);
     }
 }

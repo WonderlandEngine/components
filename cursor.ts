@@ -21,17 +21,17 @@ export type EventTypes = PointerEvent | MouseEvent | XRInputSourceEvent;
 /** Global target for {@link Cursor} */
 class CursorTargetEmitters<T> {
     /** Emitter for events when the target is hovered */
-    onHover = new Emitter<[T, Cursor, EventTypes?]>();
+    onHover = new Emitter<[T, Cursor | Component, EventTypes?]>();
     /** Emitter for events when the target is unhovered */
-    onUnhover = new Emitter<[T, Cursor, EventTypes?]>();
+    onUnhover = new Emitter<[T, Cursor | Component, EventTypes?]>();
     /** Emitter for events when the target is clicked */
-    onClick = new Emitter<[T, Cursor, EventTypes?]>();
+    onClick = new Emitter<[T, Cursor | Component, EventTypes?]>();
     /** Emitter for events when the cursor moves on the target */
-    onMove = new Emitter<[T, Cursor, EventTypes?]>();
+    onMove = new Emitter<[T, Cursor | Component, EventTypes?]>();
     /** Emitter for events when the user pressed the select button on the target */
-    onDown = new Emitter<[T, Cursor, EventTypes?]>();
+    onDown = new Emitter<[T, Cursor | Component, EventTypes?]>();
     /** Emitter for events when the user unpressed the select button on the target */
-    onUp = new Emitter<[T, Cursor, EventTypes?]>();
+    onUp = new Emitter<[T, Cursor | Component, EventTypes?]>();
 }
 
 /**
@@ -171,7 +171,7 @@ export class Cursor extends Component {
         this._collisionMask = 1 << this.collisionGroup;
 
         if (this.handedness == 0) {
-            const inputComp = this.object.getComponent('input');
+            const inputComp = this.object.getComponent(InputComponent);
             if (!inputComp) {
                 console.warn(
                     'cursor component on object',
