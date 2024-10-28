@@ -283,6 +283,7 @@ export class InputProfile extends Component {
                 this._gamepadObjects[maxNode] = obj.findByNameRecursive(maxNode)[0];
 
                 const indice = visualResponses[j].componentProperty;
+                if (!components[i].gamepadIndices[indice]) continue;
                 const response: VisualResponse = {
                     target: this._gamepadObjects[valueNode],
                     min: this._gamepadObjects[minNode],
