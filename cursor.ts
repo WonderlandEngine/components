@@ -139,6 +139,14 @@ export class Cursor extends Component {
     @property.enum(['input component', 'left', 'right', 'none'], 'input component')
     handedness: number | string = 0;
 
+    /** Object that has an input component. */
+    @property.object()
+    inputObject: Object3D | null = null;
+
+    /** Object that has a view component. */
+    @property.object()
+    viewObject: Object3D | null = null;
+
     /** Mode for raycasting, whether to use PhysX or simple collision components */
     @property.enum(['collision', 'physx'], 'collision')
     rayCastMode: number | string = 0;
@@ -171,7 +179,8 @@ export class Cursor extends Component {
         this._collisionMask = 1 << this.collisionGroup;
 
         if (this.handedness == 0) {
-            const inputComp = this.object.getComponent('input');
+            const inputCompObj = this.inputObject || this.object;
+            const inputComp = inputCompObj.getComponent('input');
             if (!inputComp) {
                 console.warn(
                     'cursor component on object',
@@ -187,7 +196,8 @@ export class Cursor extends Component {
             this.handedness = ['left', 'right', 'none'][(this.handedness as number) - 1];
         }
 
-        this._viewComponent = this.object.getComponent(ViewComponent);
+        const viewObject = this.viewObject || this.object;
+        this._viewComponent = viewObject.getComponent(ViewComponent);
 
         if (this.useWebXRHitTest) {
             this._hitTestObject = this.engine.scene.addObject(this.object);
