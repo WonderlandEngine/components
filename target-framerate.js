@@ -22,10 +22,6 @@ export class TargetFramerate extends Component {
         framerate: {type: Type.Float, default: 90.0},
     };
 
-    start() {
-        this.onSessionStartCallback = this.setTargetFramerate.bind(this);
-    }
-
     onActivate() {
         this.engine.onXRSessionStart.add(this.onSessionStartCallback);
     }
@@ -34,11 +30,11 @@ export class TargetFramerate extends Component {
         this.engine.onXRSessionStart.remove(this.onSessionStartCallback);
     }
 
-    setTargetFramerate(s) {
+    setTargetFramerate = (s) => {
         if (s.supportedFrameRates && s.updateTargetFrameRate) {
             const a = this.engine.xr.session.supportedFrameRates;
             a.sort((a, b) => Math.abs(a - this.framerate) - Math.abs(b - this.framerate));
             this.engine.xr.session.updateTargetFrameRate(a[0]);
         }
-    }
+    };
 }
