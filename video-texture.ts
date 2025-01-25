@@ -56,7 +56,7 @@ export class VideoTexture extends Component {
     video?: HTMLVideoElement;
     texture?: Texture;
 
-    onActivate() {
+    onStart() {
         this.video = document.createElement('video');
         this.video.src = this.url;
         this.video.crossOrigin = 'anonymous';
@@ -73,7 +73,7 @@ export class VideoTexture extends Component {
         }
     }
 
-    onDectivate() {
+    onDestroy() {
         this.video?.remove();
         this.texture?.destroy();
 
