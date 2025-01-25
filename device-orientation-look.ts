@@ -3,14 +3,19 @@ import {Component} from '@wonderlandengine/api';
 /**
  * Function to convert a Euler in YXZ order to a quaternion
  */
-function quatFromEulerYXZ(out, x, y, z) {
-    const c1 = Math.cos(x / 2);
-    const c2 = Math.cos(y / 2);
-    const c3 = Math.cos(z / 2);
+function quatFromEulerYXZDeg(out: number[], x: number, y: number, z: number) {
+    const halfToRad = (0.5 * Math.PI) / 180.0;
+    x *= halfToRad;
+    y *= halfToRad;
+    z *= halfToRad;
 
-    const s1 = Math.sin(x / 2);
-    const s2 = Math.sin(y / 2);
-    const s3 = Math.sin(z / 2);
+    const c1 = Math.cos(x);
+    const c2 = Math.cos(y);
+    const c3 = Math.cos(z);
+
+    const s1 = Math.sin(x);
+    const s2 = Math.sin(y);
+    const s3 = Math.sin(z);
 
     out[0] = s1 * c2 * c3 + c1 * s2 * s3;
     out[1] = c1 * s2 * c3 - s1 * c2 * s3;
@@ -68,19 +73,13 @@ export class DeviceOrientationLook extends Component {
     }
 
     onDeviceOrientation = (e: DeviceOrientationEvent) => {
-        let alpha = e.alpha || 0;
-        let beta = e.beta || 0;
-        let gamma = e.gamma || 0;
-        const toRad = Math.PI / 180;
-        quatFromEulerYXZ(
-            this.deviceOrientation,
-            beta * toRad,
-            alpha * toRad,
-            -gamma * toRad
-        );
+        let alpha = e.alpha ?? 0;
+        let beta = e.beta ?? 0;
+        let gamma = e.gamma ?? 0;
+        quatFromEulerYXZDeg(this.deviceOrientation, beta, alpha, -gamma);
     };
 
-    onOrientationChange = (e: Event) => {
+    onOrientationChange = () => {
         this.screenOrientation =
             window.screen?.orientation.angle ?? window.orientation ?? 0;
     };
