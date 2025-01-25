@@ -1,4 +1,5 @@
 import {Component, Type} from '@wonderlandengine/api';
+import {property} from '@wonderlandengine/api/decorators.js';
 
 /**
  * Applies [fixed foveation](https://www.w3.org/TR/webxrlayers-1/#dom-xrcompositionlayer-fixedfoveation)
@@ -9,20 +10,20 @@ import {Component, Type} from '@wonderlandengine/api';
  */
 export class FixedFoveation extends Component {
     static TypeName = 'fixed-foveation';
-    static Properties = {
-        /** Amount to apply from 0 (none) to 1 (full) */
-        fixedFoveation: {type: Type.Float, default: 0.5},
-    };
+
+    /** Amount to apply from 0 (none) to 1 (full) */
+    @property.float(0.5)
+    fixedFoveation!: number;
 
     onActivate() {
-        this.engine.onXRSessionStart.add(this.onSessionStartCallback);
+        this.engine.onXRSessionStart.add(this.setFixedFoveation);
     }
 
     onDeactivate() {
-        this.engine.onXRSessionStart.remove(this.onSessionStartCallback);
+        this.engine.onXRSessionStart.remove(this.setFixedFoveation);
     }
 
     setFixedFoveation = () => {
-        this.engine.xr.baseLayer.fixedFoveation = this.fixedFoveation;
+        this.engine.xr!.baseLayer.fixedFoveation = this.fixedFoveation;
     };
 }
