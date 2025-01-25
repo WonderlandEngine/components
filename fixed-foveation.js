@@ -14,10 +14,6 @@ export class FixedFoveation extends Component {
         fixedFoveation: {type: Type.Float, default: 0.5},
     };
 
-    start() {
-        this.onSessionStartCallback = this.setFixedFoveation.bind(this);
-    }
-
     onActivate() {
         this.engine.onXRSessionStart.add(this.onSessionStartCallback);
     }
@@ -26,7 +22,7 @@ export class FixedFoveation extends Component {
         this.engine.onXRSessionStart.remove(this.onSessionStartCallback);
     }
 
-    setFixedFoveation() {
+    setFixedFoveation = () => {
         this.engine.xr.baseLayer.fixedFoveation = this.fixedFoveation;
-    }
+    };
 }
