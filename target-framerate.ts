@@ -1,4 +1,5 @@
 import {Component, Type} from '@wonderlandengine/api';
+import {property} from '@wonderlandengine/api/decorators.js';
 
 /**
  * Sets the target framerate
@@ -18,27 +19,23 @@ import {Component, Type} from '@wonderlandengine/api';
  */
 export class TargetFramerate extends Component {
     static TypeName = 'target-framerate';
-    static Properties = {
-        framerate: {type: Type.Float, default: 90.0},
-    };
 
-    start() {
-        this.onSessionStartCallback = this.setTargetFramerate.bind(this);
-    }
+    @property.float(90.0)
+    framerate!: number;
 
     onActivate() {
-        this.engine.onXRSessionStart.add(this.onSessionStartCallback);
+        this.engine.onXRSessionStart.add(this.setTargetFramerate);
     }
 
     onDeactivate() {
-        this.engine.onXRSessionStart.remove(this.onSessionStartCallback);
+        this.engine.onXRSessionStart.remove(this.setTargetFramerate);
     }
 
-    setTargetFramerate(s) {
-        if (s.supportedFrameRates && s.updateTargetFrameRate) {
-            const a = this.engine.xr.session.supportedFrameRates;
+    setTargetFramerate = (s: XRSession) => {
+        if (s.supportedFrameRates) {
+            const a = s.supportedFrameRates;
             a.sort((a, b) => Math.abs(a - this.framerate) - Math.abs(b - this.framerate));
-            this.engine.xr.session.updateTargetFrameRate(a[0]);
+            s.updateTargetFrameRate(a[0]);
         }
-    }
+    };
 }
