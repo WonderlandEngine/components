@@ -56,7 +56,7 @@ export class VideoTexture extends Component {
     video?: HTMLVideoElement;
     texture?: Texture;
 
-    onStart() {
+    start() {
         this.video = document.createElement('video');
         this.video.src = this.url;
         this.video.crossOrigin = 'anonymous';
