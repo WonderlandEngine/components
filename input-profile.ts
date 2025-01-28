@@ -270,6 +270,7 @@ export class InputProfile extends Component {
 
         for (const i in components) {
             const visualResponses = components[i].visualResponses;
+            if (components[i].rootNodeName === 'menu') continue;
 
             for (const j in visualResponses) {
                 // update buttons with new interface of current visual response
@@ -282,14 +283,14 @@ export class InputProfile extends Component {
                 this._gamepadObjects[minNode] = obj.findByNameRecursive(minNode)[0];
                 this._gamepadObjects[maxNode] = obj.findByNameRecursive(maxNode)[0];
 
-                const indice = visualResponses[j].componentProperty;
+                const prop = visualResponses[j].componentProperty;
                 const response: VisualResponse = {
                     target: this._gamepadObjects[valueNode],
                     min: this._gamepadObjects[minNode],
                     max: this._gamepadObjects[maxNode],
-                    id: components[i].gamepadIndices[indice], // Assign a unique ID
+                    id: components[i].gamepadIndices[prop], // Assign a unique ID
                 };
-                switch (indice) {
+                switch (prop) {
                     case 'button':
                         this._buttons.push(response);
                         break;
