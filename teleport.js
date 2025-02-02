@@ -82,12 +82,6 @@ export class TeleportComponent extends Component {
     }
 
     start() {
-        if (this.cam) {
-            this.isMouseIndicating = false;
-            canvas.addEventListener('mousedown', this.onMouseDown.bind(this));
-            canvas.addEventListener('mouseup', this.onMouseUp.bind(this));
-        }
-
         if (this.handedness == 0) {
             const inputComp = this.object.getComponent('input');
             if (!inputComp) {
@@ -110,10 +104,18 @@ export class TeleportComponent extends Component {
     }
 
     onActivate() {
+        if (this.cam) {
+            this.isMouseIndicating = false;
+            canvas.addEventListener('mousedown', this.onMouseDown);
+            canvas.addEventListener('mouseup', this.onMouseUp);
+        }
+
         this.engine.onXRSessionStart.add(this.onSessionStartCallback);
     }
 
     onDeactivate() {
+        canvas.addEventListener('mousedown', this.onMouseDown);
+        canvas.addEventListener('mouseup', this.onMouseUp);
         this.engine.onXRSessionStart.remove(this.onSessionStartCallback);
     }
 
@@ -241,16 +243,16 @@ export class TeleportComponent extends Component {
             }.bind(this)
         );
     }
-    onMouseDown() {
+    onMouseDown = () => {
         this.isMouseIndicating = true;
-    }
-    onMouseUp() {
+    };
+    onMouseUp = () => {
         this.isMouseIndicating = false;
         this.teleportIndicatorMeshObject.active = false;
         if (this._hasHit) {
             this._teleportPlayer(this.hitSpot, 0.0);
         }
-    }
+    };
     onMousePressed() {
         let origin = [0, 0, 0];
         this.cam.getPositionWorld(origin);

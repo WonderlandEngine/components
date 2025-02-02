@@ -8,15 +8,6 @@ function clamp(v, a, b) {
 const rootScaling = new Float32Array(3);
 const tempQuat = new Float32Array(4);
 
-const middlePos = new Float32Array(3);
-const endPos = new Float32Array(3);
-const targetPos = new Float32Array(3);
-const helperPos = new Float32Array(3);
-
-const rootTransform = new Float32Array(8);
-const middleTransform = new Float32Array(8);
-const endTransform = new Float32Array(8);
-
 /**
  * Solve inverse kinematics for a two joint chains
  *
@@ -106,48 +97,57 @@ export class TwoJointIkSolver extends Component {
 
     time = 0;
 
+    middlePos = new Float32Array(3);
+    endPos = new Float32Array(3);
+    targetPos = new Float32Array(3);
+    helperPos = new Float32Array(3);
+
+    rootTransform = new Float32Array(8);
+    middleTransform = new Float32Array(8);
+    endTransform = new Float32Array(8);
+
     start() {
-        this.root.getTransformLocal(rootTransform);
-        this.middle.getTransformLocal(middleTransform);
-        this.end.getTransformLocal(endTransform);
+        this.root.getTransformLocal(this.rootTransform);
+        this.middle.getTransformLocal(this.middleTransform);
+        this.end.getTransformLocal(this.endTransform);
     }
 
     update(dt) {
         this.time += dt;
 
         /* Reset to original pose for stability */
-        this.root.setTransformLocal(rootTransform);
-        this.middle.setTransformLocal(middleTransform);
-        this.end.setTransformLocal(endTransform);
+        this.root.setTransformLocal(this.rootTransform);
+        this.middle.setTransformLocal(this.middleTransform);
+        this.end.setTransformLocal(this.endTransform);
 
         this.root.getScalingWorld(rootScaling);
 
         /* Get joint positions in root-space */
-        this.middle.getPositionLocal(middlePos);
+        this.middle.getPositionLocal(this.middlePos);
 
-        this.end.getPositionLocal(endPos);
-        this.middle.transformPointLocal(endPos, endPos);
+        this.end.getPositionLocal(this.endPos);
+        this.middle.transformPointLocal(this.endPos, this.endPos);
 
         if (this.helper) {
             /* Get helper position in root space */
-            this.helper.getPositionWorld(helperPos);
-            this.root.transformPointInverseWorld(helperPos, helperPos);
-            vec3.div(helperPos, helperPos, rootScaling);
+            this.helper.getPositionWorld(this.helperPos);
+            this.root.transformPointInverseWorld(this.helperPos, this.helperPos);
+            vec3.div(this.helperPos, this.helperPos, rootScaling);
         }
 
         /* Get target position in root space */
-        this.target.getPositionWorld(targetPos);
-        this.root.transformPointInverseWorld(targetPos, targetPos);
-        vec3.div(targetPos, targetPos, rootScaling);
+        this.target.getPositionWorld(this.targetPos);
+        this.root.transformPointInverseWorld(this.targetPos, this.targetPos);
+        vec3.div(this.targetPos, this.targetPos, rootScaling);
 
         twoJointIK(
             this.root,
             this.middle,
-            middlePos,
-            endPos,
-            targetPos,
+            this.middlePos,
+            this.endPos,
+            this.targetPos,
             0.01,
-            this.helper ? helperPos : null,
+            this.helper ? this.helperPos : null,
             this.time
         );
 

@@ -10,7 +10,7 @@ import {property} from '@wonderlandengine/api/decorators.js';
 import {vec3, quat} from 'gl-matrix';
 import {setXRRigidTransformLocal} from './utils/webxr.js';
 
-const ORDERED_JOINTS: string[] = [
+const ORDERED_JOINTS: XRHandJoint[] = [
     'wrist',
 
     'thumb-metacarpal',
@@ -42,13 +42,6 @@ const ORDERED_JOINTS: string[] = [
     'pinky-finger-phalanx-distal',
     'pinky-finger-tip',
 ];
-
-/* Unfortunately the @types/webxr package has non-extendible incorrect
- * WebXR Device API types */
-interface XRHand {
-    readonly size: number;
-    get: (key: string) => XRJointSpace;
-}
 
 const invTranslation = vec3.create();
 const invRotation = quat.create();
