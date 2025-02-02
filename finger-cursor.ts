@@ -13,7 +13,7 @@ import {CursorTarget} from './cursor-target.js';
 export class FingerCursor extends Component {
     static TypeName = 'finger-cursor';
 
-    lastTarget?: CursorTarget | null = null;
+    lastTarget: CursorTarget | null = null;
     tip!: CollisionComponent;
 
     start() {
