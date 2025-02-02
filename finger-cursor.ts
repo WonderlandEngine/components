@@ -1,4 +1,5 @@
-import {Component} from '@wonderlandengine/api';
+import {CollisionComponent, Component, Object3D} from '@wonderlandengine/api';
+import {CursorTarget} from './cursor-target.js';
 
 /**
  * Enables interaction with cursor-targets through collision overlaps,
@@ -11,14 +12,18 @@ import {Component} from '@wonderlandengine/api';
  */
 export class FingerCursor extends Component {
     static TypeName = 'finger-cursor';
-    static Properties = {};
 
-    init() {
-        this.lastTarget = null;
-    }
+    lastTarget: CursorTarget | null = null;
+    tip!: CollisionComponent;
 
     start() {
-        this.tip = this.object.getComponent('collision');
+        const collisionComponent = this.object.getComponent(CollisionComponent);
+        if (!collisionComponent) {
+            throw new Error(
+                `Finger-cursor component on object '${this.object.name}' requires a collision component to work properly.`
+            );
+        }
+        this.tip = collisionComponent;
     }
 
     update() {
@@ -27,11 +32,11 @@ export class FingerCursor extends Component {
         let overlapFound = null;
         for (let i = 0; i < overlaps.length; ++i) {
             const o = overlaps[i].object;
-            const target = o.getComponent('cursor-target');
+            const target = o.getComponent(CursorTarget);
             if (target) {
                 if (!target.equals(this.lastTarget)) {
-                    target.onHover(o, this);
-                    target.onClick(o, this);
+                    target.onHover.notify(o, this);
+                    target.onClick.notify(o, this);
                 }
                 overlapFound = target;
                 break;
@@ -39,7 +44,8 @@ export class FingerCursor extends Component {
         }
 
         if (!overlapFound) {
-            if (this.lastTarget) this.lastTarget.onUnhover(this.lastTarget.object, this);
+            if (this.lastTarget)
+                this.lastTarget.onUnhover.notify(this.lastTarget.object, this);
             this.lastTarget = null;
             return;
         } else {

@@ -18,20 +18,29 @@ const ZERO = [0, 0, 0];
 
 export type EventTypes = PointerEvent | MouseEvent | XRInputSourceEvent;
 
+export interface CursorEvents<T, K> {
+    onHover: Emitter<[T, K, EventTypes?]>;
+    onUnhover: Emitter<[T, K, EventTypes?]>;
+    onClick: Emitter<[T, K, EventTypes?]>;
+    onMove: Emitter<[T, K, EventTypes?]>;
+    onDown: Emitter<[T, K, EventTypes?]>;
+    onUp: Emitter<[T, K, EventTypes?]>;
+}
+
 /** Global target for {@link Cursor} */
-class CursorTargetEmitters<T> {
+class CursorTargetEmitters<T, K> implements CursorEvents<T, K> {
     /** Emitter for events when the target is hovered */
-    onHover = new Emitter<[T, Cursor, EventTypes?]>();
+    onHover = new Emitter<[T, K, EventTypes?]>();
     /** Emitter for events when the target is unhovered */
-    onUnhover = new Emitter<[T, Cursor, EventTypes?]>();
+    onUnhover = new Emitter<[T, K, EventTypes?]>();
     /** Emitter for events when the target is clicked */
-    onClick = new Emitter<[T, Cursor, EventTypes?]>();
+    onClick = new Emitter<[T, K, EventTypes?]>();
     /** Emitter for events when the cursor moves on the target */
-    onMove = new Emitter<[T, Cursor, EventTypes?]>();
+    onMove = new Emitter<[T, K, EventTypes?]>();
     /** Emitter for events when the user pressed the select button on the target */
-    onDown = new Emitter<[T, Cursor, EventTypes?]>();
+    onDown = new Emitter<[T, K, EventTypes?]>();
     /** Emitter for events when the user unpressed the select button on the target */
-    onUp = new Emitter<[T, Cursor, EventTypes?]>();
+    onUp = new Emitter<[T, K, EventTypes?]>();
 }
 
 /**
@@ -101,7 +110,7 @@ export class Cursor extends Component {
     /**
      * Global target lets you receive global cursor events on any object.
      */
-    globalTarget = new CursorTargetEmitters<Object3D>();
+    globalTarget = new CursorTargetEmitters<Object3D, Cursor>();
 
     /**
      * Hit test target lets you receive cursor events for "reality", if
@@ -114,7 +123,7 @@ export class Cursor extends Component {
      * });
      * ```
      */
-    hitTestTarget = new CursorTargetEmitters<XRHitTestResult | null>();
+    hitTestTarget = new CursorTargetEmitters<XRHitTestResult | null, Cursor>();
 
     /** World position of the cursor */
     cursorPos = new Float32Array(3);
@@ -180,7 +189,7 @@ export class Cursor extends Component {
 
         if (this.handedness == 0) {
             const inputCompObj = this.inputObject || this.object;
-            const inputComp = inputCompObj.getComponent('input');
+            const inputComp = inputCompObj.getComponent(InputComponent);
             if (!inputComp) {
                 console.warn(
                     'cursor component on object',
