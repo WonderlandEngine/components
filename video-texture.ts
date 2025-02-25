@@ -68,8 +68,14 @@ export class VideoTexture extends Component {
         });
 
         if (this.autoplay) {
-            window.addEventListener('click', this.playAfterUserGesture);
-            window.addEventListener('touchstart', this.playAfterUserGesture);
+            /* Muted videos are allowed to play immediately. Videos with sound
+             * need to await a user gesture. */
+            if (this.muted) {
+                this.video?.play();
+            } else {
+                window.addEventListener('click', this.playAfterUserGesture);
+                window.addEventListener('touchstart', this.playAfterUserGesture);
+            }
         }
     }
 
@@ -77,7 +83,7 @@ export class VideoTexture extends Component {
         this.video?.remove();
         this.texture?.destroy();
 
-        if (this.autoplay) {
+        if (this.autoplay && !this.muted) {
             /* In case not removed yet, we remove the autoplay gestures here.
              * If already removed, these have no effect. */
             window.removeEventListener('click', this.playAfterUserGesture);
