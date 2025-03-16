@@ -1,15 +1,15 @@
 import {Component} from '@wonderlandengine/api';
-import {quat, quat2, mat4, vec3} from 'gl-matrix';
+import {quat, quat2, vec3} from 'gl-matrix';
 import {Object3D} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 
-const VRM_ROLL_AXES: {[key: string]: [number, number, number]} = {
+const VRM_ROLL_AXES: Record<string, [number, number, number]> = {
     X: [1.0, 0.0, 0.0],
     Y: [0.0, 1.0, 0.0],
     Z: [0.0, 0.0, 1.0],
 };
 
-const VRM_AIM_AXES: {[key: string]: [number, number, number]} = {
+const VRM_AIM_AXES: Record<string, [number, number, number]> = {
     PositiveX: [1.0, 0.0, 0.0],
     NegativeX: [-1.0, 0.0, 0.0],
     PositiveY: [0.0, 1.0, 0.0],
@@ -17,6 +17,11 @@ const VRM_AIM_AXES: {[key: string]: [number, number, number]} = {
     PositiveZ: [0.0, 0.0, 1.0],
     NegativeZ: [0.0, 0.0, -1.0],
 };
+
+const Rad2Deg = 180.0 / Math.PI;
+const RightVector = vec3.fromValues(1, 0, 0);
+const UpVector = vec3.fromValues(0, 1, 0);
+const ForwardVector = vec3.fromValues(0, 0, 1);
 
 interface FirstPersonAnnotation {
     node: Object3D;
@@ -37,7 +42,7 @@ interface LookAt {
     verticalUp: LookAtRangeMap;
 }
 
-interface HumaoidBones {
+interface HumanoidBones {
     [key: string]: Object3D | null;
     /* Torso */
     hips: Object3D | null;
@@ -186,7 +191,7 @@ export class Vrm extends Component {
     /** Meta information about the VRM model */
     meta: any = null;
     /** The humanoid bones of the VRM model */
-    bones: HumaoidBones = {
+    bones: HumanoidBones = {
         /* Torso */
         hips: null,
         spine: null,
@@ -275,64 +280,35 @@ export class Vrm extends Component {
     /* Whether or not the VRM component has been initialized with `initializeVrm` */
     private _initialized: boolean = false;
 
-    private _tempV3!: vec3;
-    private _tempV3A!: vec3;
-    private _tempV3B!: vec3;
-    private _tempQuat!: quat;
-    private _tempQuatA!: quat;
-    private _tempQuatB!: quat;
-    private _tempMat4A!: mat4;
-    private _tempQuat2!: quat2;
+    private _tempV3 = vec3.create();
+    private _tempV3A = vec3.create();
+    private _tempV3B = vec3.create();
+    private _tempQuat = quat.create();
+    private _tempQuatA = quat.create();
+    private _tempQuatB = quat.create();
+    private _tempQuat2 = quat2.create();
 
-    private _tailToShape!: vec3;
-    private _headToTail!: vec3;
+    private _tailToShape = vec3.create();
+    private _headToTail = vec3.create();
 
-    private _inertia!: vec3;
-    private _stiffness!: vec3;
-    private _external!: vec3;
+    private _inertia = vec3.create();
+    private _stiffness = vec3.create();
+    private _external = vec3.create();
 
-    private _rightVector!: vec3;
-    private _upVector!: vec3;
-    private _forwardVector!: vec3;
-    private _identityQuat!: quat;
-    private _rad2deg!: number;
+    private _identityQuat = quat.identity(quat.create());
 
-    init() {
-        this._tempV3 = vec3.create();
-        this._tempV3A = vec3.create();
-        this._tempV3B = vec3.create();
-        this._tempQuat = quat.create();
-        this._tempQuatA = quat.create();
-        this._tempQuatB = quat.create();
-        this._tempMat4A = mat4.create();
-        this._tempQuat2 = quat2.create();
-
-        this._tailToShape = vec3.create();
-        this._headToTail = vec3.create();
-
-        this._inertia = vec3.create();
-        this._stiffness = vec3.create();
-        this._external = vec3.create();
-
-        this._rightVector = vec3.set(vec3.create(), 1, 0, 0);
-        this._upVector = vec3.set(vec3.create(), 0, 1, 0);
-        this._forwardVector = vec3.set(vec3.create(), 0, 0, 1);
-        this._identityQuat = quat.identity(quat.create());
-        this._rad2deg = 180.0 / Math.PI;
-    }
-
-    start() {
+    async start() {
         if (!this.src) {
             console.error('vrm: src property not set');
             return;
         }
 
-        this.engine.loadGLTF({url: this.src, extensions: true}).then((prefab) => {
-            const {root, extensions} = this.engine.scene.instantiate(prefab);
-            root!.children.forEach((child) => (child.parent = this.object));
-            this._initializeVrm(prefab.extensions, extensions?.idMapping!);
-            root!.destroy();
-        });
+        const prefab = await this.engine.loadGLTF({url: this.src, extensions: true});
+
+        const {root, extensions} = this.engine.scene.instantiate(prefab);
+        root!.children.forEach((child) => (child.parent = this.object));
+        this._initializeVrm(prefab.extensions, extensions?.idMapping!);
+        root!.destroy();
     }
 
     /**
@@ -647,13 +623,13 @@ export class Vrm extends Component {
 
         /* Convert the direction into LookAt space */
         this.bones.head!.parent!.transformVectorInverseWorld(lookAtDirection);
-        const z = vec3.dot(lookAtDirection, this._forwardVector);
-        const x = vec3.dot(lookAtDirection, this._rightVector);
-        const yaw = Math.atan2(x, z) * this._rad2deg;
+        const z = vec3.dot(lookAtDirection, ForwardVector);
+        const x = vec3.dot(lookAtDirection, RightVector);
+        const yaw = Math.atan2(x, z) * Rad2Deg;
 
         const xz = Math.sqrt(x * x + z * z);
-        const y = vec3.dot(lookAtDirection, this._upVector);
-        let pitch = Math.atan2(-y, xz) * this._rad2deg;
+        const y = vec3.dot(lookAtDirection, UpVector);
+        let pitch = Math.atan2(-y, xz) * Rad2Deg;
 
         /* Limit pitch */
         if (pitch > 0) {
