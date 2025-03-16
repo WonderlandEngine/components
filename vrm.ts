@@ -1,14 +1,15 @@
-import {Component, Property} from '@wonderlandengine/api';
+import {Component} from '@wonderlandengine/api';
+import {quat, quat2, vec3} from 'gl-matrix';
+import {Object3D} from '@wonderlandengine/api';
+import {property} from '@wonderlandengine/api/decorators.js';
 
-import {vec3, mat4, quat, quat2} from 'gl-matrix';
-
-const VRM_ROLL_AXES = {
+const VRM_ROLL_AXES: Record<string, [number, number, number]> = {
     X: [1.0, 0.0, 0.0],
     Y: [0.0, 1.0, 0.0],
     Z: [0.0, 0.0, 1.0],
 };
 
-const VRM_AIM_AXES = {
+const VRM_AIM_AXES: Record<string, [number, number, number]> = {
     PositiveX: [1.0, 0.0, 0.0],
     NegativeX: [-1.0, 0.0, 0.0],
     PositiveY: [0.0, 1.0, 0.0],
@@ -16,6 +17,142 @@ const VRM_AIM_AXES = {
     PositiveZ: [0.0, 0.0, 1.0],
     NegativeZ: [0.0, 0.0, -1.0],
 };
+
+const Rad2Deg = 180.0 / Math.PI;
+const RightVector = vec3.fromValues(1, 0, 0);
+const UpVector = vec3.fromValues(0, 1, 0);
+const ForwardVector = vec3.fromValues(0, 0, 1);
+
+interface FirstPersonAnnotation {
+    node: Object3D;
+    firstPerson: boolean;
+    thirdPerson: boolean;
+}
+
+interface LookAtRangeMap {
+    inputMaxValue: number;
+    outputScale: number;
+}
+
+interface LookAt {
+    offsetFromHeadBone: [number, number, number];
+    horizontalInner: LookAtRangeMap;
+    horizontalOuter: LookAtRangeMap;
+    verticalDown: LookAtRangeMap;
+    verticalUp: LookAtRangeMap;
+}
+
+interface HumanoidBones {
+    [key: string]: Object3D | null;
+    /* Torso */
+    hips: Object3D | null;
+    spine: Object3D | null;
+    chest: Object3D | null;
+    upperChest: Object3D | null;
+    neck: Object3D | null;
+
+    /* Head */
+    head: Object3D | null;
+    leftEye: Object3D | null;
+    rightEye: Object3D | null;
+    jaw: Object3D | null;
+
+    /* Legs */
+    leftUpperLeg: Object3D | null;
+    leftLowerLeg: Object3D | null;
+    leftFoot: Object3D | null;
+    leftToes: Object3D | null;
+    rightUpperLeg: Object3D | null;
+    rightLowerLeg: Object3D | null;
+    rightFoot: Object3D | null;
+    rightToes: Object3D | null;
+
+    /* Arms */
+    leftShoulder: Object3D | null;
+    leftUpperArm: Object3D | null;
+    leftLowerArm: Object3D | null;
+    leftHand: Object3D | null;
+    rightShoulder: Object3D | null;
+    rightUpperArm: Object3D | null;
+    rightLowerArm: Object3D | null;
+    rightHand: Object3D | null;
+
+    /* Fingers */
+    leftThumbMetacarpal: Object3D | null;
+    leftThumbProximal: Object3D | null;
+    leftThumbDistal: Object3D | null;
+    leftIndexProximal: Object3D | null;
+    leftIndexIntermediate: Object3D | null;
+    leftIndexDistal: Object3D | null;
+    leftMiddleProximal: Object3D | null;
+    leftMiddleIntermediate: Object3D | null;
+    leftMiddleDistal: Object3D | null;
+    leftRingProximal: Object3D | null;
+    leftRingIntermediate: Object3D | null;
+    leftRingDistal: Object3D | null;
+    leftLittleProximal: Object3D | null;
+    leftLittleIntermediate: Object3D | null;
+    leftLittleDistal: Object3D | null;
+    rightThumbMetacarpal: Object3D | null;
+    rightThumbProximal: Object3D | null;
+    rightThumbDistal: Object3D | null;
+    rightIndexProximal: Object3D | null;
+    rightIndexIntermediate: Object3D | null;
+    rightIndexDistal: Object3D | null;
+    rightMiddleProximal: Object3D | null;
+    rightMiddleIntermediate: Object3D | null;
+    rightMiddleDistal: Object3D | null;
+    rightRingProximal: Object3D | null;
+    rightRingIntermediate: Object3D | null;
+    rightRingDistal: Object3D | null;
+    rightLittleProximal: Object3D | null;
+    rightLittleIntermediate: Object3D | null;
+    rightLittleDistal: Object3D | null;
+}
+
+interface SpringChainCollider {
+    id: number;
+    object: Object3D;
+    shape: {
+        isCapsule: boolean;
+        radius: number;
+        offset: [number, number, number];
+        tail: [number, number, number];
+    };
+    cache: {
+        head: vec3;
+        tail: vec3;
+    };
+}
+
+interface SpringJointState {
+    prevTail: vec3;
+    currentTail: vec3;
+    initialLocalRotation: quat;
+    initialLocalTransformInvert: quat2;
+    boneAxis: vec3;
+    boneLength: number;
+    prevTailCenter: vec3 | null;
+    currentTailCenter: vec3 | null;
+}
+
+interface SpringJoint {
+    hitRadius: number;
+    stiffness: number;
+    gravityPower: number;
+    gravityDir: [number, number, number];
+    dragForce: number;
+    node: Object3D;
+    state: SpringJointState | null;
+}
+
+interface SpringChain {
+    name: string;
+    center: Object3D | null;
+    joints: SpringJoint[];
+    sphereColliders: SpringChainCollider[];
+    capsuleColliders: SpringChainCollider[];
+}
 
 /**
  * Component for loading and handling VRM 1.0 models.
@@ -43,17 +180,18 @@ const VRM_AIM_AXES = {
  */
 export class Vrm extends Component {
     static TypeName = 'vrm';
-    static Properties = {
-        /** URL to a VRM file to load */
-        src: Property.string(),
-        /** Object the VRM is looking at */
-        lookAtTarget: Property.object(),
-    };
+
+    /** URL to a VRM file to load */
+    @property.string()
+    src!: string;
+    /** Object the VRM is looking at */
+    @property.object()
+    lookAtTarget!: Object3D | null;
 
     /** Meta information about the VRM model */
-    meta = null;
+    meta: any = null;
     /** The humanoid bones of the VRM model */
-    bones = {
+    bones: HumanoidBones = {
         /* Torso */
         hips: null,
         spine: null,
@@ -119,88 +257,81 @@ export class Vrm extends Component {
         rightLittleIntermediate: null,
         rightLittleDistal: null,
     };
+
     /** Rotations of the bones in the rest pose (T-pose) */
-    restPose = {};
+    restPose: {[key: string]: quat} = {};
 
     /* All node constraints, ordered to deal with dependencies */
-    _nodeConstraints = [];
+    private _nodeConstraints: any[] = [];
 
     /* VRMC_springBone chains */
-    _springChains = [];
+    private _springChains: SpringChain[] = [];
     /* Spherical colliders for spring bones */
-    _sphereColliders = [];
+    private _sphereColliders: SpringChainCollider[] = [];
     /* Capsule shaped colliders for spring bones */
-    _capsuleColliders = [];
+    private _capsuleColliders: SpringChainCollider[] = [];
 
     /* Indicates which meshes are rendered in first/third person views */
-    _firstPersonAnnotations = [];
+    private _firstPersonAnnotations: FirstPersonAnnotation[] = [];
 
     /* Contains details for (bone type) lookAt behaviour */
-    _lookAt = null;
+    private _lookAt: LookAt | null = null;
 
     /* Whether or not the VRM component has been initialized with `initializeVrm` */
-    _initialized = false;
+    private _initialized: boolean = false;
 
-    init() {
-        this._tempV3 = vec3.create();
-        this._tempV3A = vec3.create();
-        this._tempV3B = vec3.create();
-        this._tempQuat = quat.create();
-        this._tempQuatA = quat.create();
-        this._tempQuatB = quat.create();
-        this._tempMat4A = mat4.create();
-        this._tempQuat2 = quat2.create();
+    private _tempV3 = vec3.create();
+    private _tempV3A = vec3.create();
+    private _tempV3B = vec3.create();
+    private _tempQuat = quat.create();
+    private _tempQuatA = quat.create();
+    private _tempQuatB = quat.create();
+    private _tempQuat2 = quat2.create();
 
-        this._tailToShape = vec3.create();
-        this._headToTail = vec3.create();
+    private _tailToShape = vec3.create();
+    private _headToTail = vec3.create();
 
-        this._inertia = vec3.create();
-        this._stiffness = vec3.create();
-        this._external = vec3.create();
+    private _inertia = vec3.create();
+    private _stiffness = vec3.create();
+    private _external = vec3.create();
 
-        this._rightVector = vec3.set(vec3.create(), 1, 0, 0);
-        this._upVector = vec3.set(vec3.create(), 0, 1, 0);
-        this._forwardVector = vec3.set(vec3.create(), 0, 0, 1);
-        this._identityQuat = quat.identity(quat.create());
-        this._rad2deg = 180.0 / Math.PI;
-    }
+    private _identityQuat = quat.identity(quat.create());
 
-    start() {
+    async start() {
         if (!this.src) {
             console.error('vrm: src property not set');
             return;
         }
 
-        this.engine.scene
-            .append(this.src, {loadGltfExtensions: true})
-            .then(({root, extensions}) => {
-                root.children.forEach((child) => (child.parent = this.object));
-                this._initializeVrm(extensions);
-                root.destroy();
-            });
+        const prefab = await this.engine.loadGLTF({url: this.src, extensions: true});
+
+        const {root, extensions} = this.engine.scene.instantiate(prefab);
+        root!.children.forEach((child) => (child.parent = this.object));
+        this._initializeVrm(prefab.extensions, extensions?.idMapping!);
+        root!.destroy();
     }
 
     /**
      * Parses the VRM glTF extensions and initializes the vrm component.
      * @param extensions The glTF extensions for the VRM model
      */
-    _initializeVrm(extensions) {
+    private _initializeVrm(extensions: any, idMapping: number[]): void {
         if (this._initialized) {
-            throw Error('VRM component has already been initialized');
+            throw new Error('VRM component has already been initialized');
         }
 
         const VRMC_vrm = extensions.root['VRMC_vrm'];
         if (!VRMC_vrm) {
-            throw Error('Missing VRM extensions');
+            throw new Error('Missing VRM extensions');
         }
         if (VRMC_vrm.specVersion !== '1.0') {
-            throw Error(
+            throw new Error(
                 `Unsupported VRM version, only 1.0 is supported, but encountered '${VRMC_vrm.specVersion}'`
             );
         }
 
         this.meta = VRMC_vrm.meta;
-        this._parseHumanoid(VRMC_vrm.humanoid, extensions);
+        this._parseHumanoid(VRMC_vrm.humanoid, idMapping);
 
         if (VRMC_vrm.firstPerson) {
             this._parseFirstPerson(VRMC_vrm.firstPerson, extensions);
@@ -210,17 +341,17 @@ export class Vrm extends Component {
             this._parseLookAt(VRMC_vrm.lookAt);
         }
 
-        this._findAndParseNodeConstraints(extensions);
+        this._findAndParseNodeConstraints(extensions, idMapping);
 
         const springBone = extensions.root['VRMC_springBone'];
         if (springBone) {
-            this._parseAndInitializeSpringBones(springBone, extensions);
+            this._parseAndInitializeSpringBones(springBone, idMapping);
         }
 
         this._initialized = true;
     }
 
-    _parseHumanoid(humanoid, extensions) {
+    private _parseHumanoid(humanoid: any, idMapping: number[]): void {
         for (const boneName in humanoid.humanBones) {
             if (!(boneName in this.bones)) {
                 console.warn(`Unrecognized bone '${boneName}'`);
@@ -228,20 +359,17 @@ export class Vrm extends Component {
             }
 
             const node = humanoid.humanBones[boneName].node;
-            const objectId = extensions.idMapping[node];
+            const objectId = idMapping[node];
 
-            this.bones[boneName] = this.engine.wrapObject(objectId);
-            this.restPose[boneName] = quat.copy(
-                quat.create(),
-                this.bones[boneName].rotationLocal
-            );
+            this.bones[boneName] = this.engine.scene.wrap(objectId);
+            this.restPose[boneName] = this.bones[boneName]!.getRotationLocal(quat.create());
         }
     }
 
-    _parseFirstPerson(firstPerson, extensions) {
+    private _parseFirstPerson(firstPerson: any, idMapping: number[]): void {
         for (const meshAnnotation of firstPerson.meshAnnotations) {
-            const annotation = {
-                node: this.engine.wrapObject(extensions.idMapping[meshAnnotation.node]),
+            const annotation: FirstPersonAnnotation = {
+                node: this.engine.scene.wrap(idMapping[meshAnnotation.node]),
                 firstPerson: true,
                 thirdPerson: true,
             };
@@ -267,7 +395,7 @@ export class Vrm extends Component {
         }
     }
 
-    _parseLookAt(lookAt) {
+    private _parseLookAt(lookAt: any): void {
         if (lookAt.type !== 'bone') {
             console.warn(
                 `Unsupported lookAt type '${lookAt.type}', only 'bone' is supported`
@@ -275,7 +403,7 @@ export class Vrm extends Component {
             return;
         }
 
-        const parseRangeMap = (rangeMap) => {
+        const parseRangeMap = (rangeMap: any): LookAtRangeMap => {
             return {
                 inputMaxValue: rangeMap.inputMaxValue,
                 outputScale: rangeMap.outputScale,
@@ -290,27 +418,27 @@ export class Vrm extends Component {
         };
     }
 
-    _findAndParseNodeConstraints(extensions) {
-        const traverse = (object) => {
+    private _findAndParseNodeConstraints(extensions: any, idMapping: number[]): void {
+        const traverse = (object: Object3D) => {
             const nodeExtensions = extensions.node[object.objectId];
             if (nodeExtensions && 'VRMC_node_constraint' in nodeExtensions) {
                 const nodeConstraintExtension = nodeExtensions['VRMC_node_constraint'];
 
                 const constraint = nodeConstraintExtension.constraint;
-                let type, axis;
+                let type: string | undefined, axis: [number, number, number] | undefined;
                 if ('roll' in constraint) {
                     type = 'roll';
-                    axis = VRM_ROLL_AXES[constraint.roll.rollAxis];
+                    axis = VRM_ROLL_AXES[constraint.roll.rollAxis as string];
                 } else if ('aim' in constraint) {
                     type = 'aim';
-                    axis = VRM_AIM_AXES[constraint.aim.aimAxis];
+                    axis = VRM_AIM_AXES[constraint.aim.aimAxis as string];
                 } else if ('rotation' in constraint) {
                     type = 'rotation';
                 }
 
                 if (type) {
-                    const source = this.engine.wrapObject(
-                        extensions.idMapping[constraint[type].source]
+                    const source = this.engine.scene.wrap(
+                        idMapping[constraint[type].source]
                     );
                     this._nodeConstraints.push({
                         type,
@@ -319,17 +447,13 @@ export class Vrm extends Component {
                         axis: axis,
                         weight: constraint[type].weight,
                         /* Rest pose */
-                        destinationRestLocalRotation: quat.copy(
-                            quat.create(),
-                            object.rotationLocal
+                        destinationRestLocalRotation: object.getRotationLocal(
+                            quat.create()
                         ),
-                        sourceRestLocalRotation: quat.copy(
-                            quat.create(),
-                            source.rotationLocal
-                        ),
+                        sourceRestLocalRotation: source.getRotationLocal(quat.create()),
                         sourceRestLocalRotationInv: quat.invert(
                             quat.create(),
-                            source.rotationLocal
+                            source.getRotationLocal(this._tempQuat)
                         ),
                     });
                 } else {
@@ -346,58 +470,60 @@ export class Vrm extends Component {
         traverse(this.object);
     }
 
-    _parseAndInitializeSpringBones(springBone, extensions) {
-        const colliders = (springBone.colliders || []).map((collider, i) => {
-            const shapeType = 'capsule' in collider.shape ? 'capsule' : 'sphere';
-            return {
-                id: i,
-                object: this.engine.wrapObject(extensions.idMapping[collider.node]),
-                shape: {
-                    isCapsule: shapeType === 'capsule',
-                    radius: collider.shape[shapeType].radius,
-                    offset: collider.shape[shapeType].offset,
-                    tail: collider.shape[shapeType].tail,
-                },
-                cache: {
-                    head: vec3.create(),
-                    tail: vec3.create(),
-                },
-            };
-        });
+    private _parseAndInitializeSpringBones(springBone: any, idMapping: number[]): void {
+        const colliders: SpringChainCollider[] = (springBone.colliders || []).map(
+            (collider: any, i: number) => {
+                const shapeType = 'capsule' in collider.shape ? 'capsule' : 'sphere';
+                return {
+                    id: i,
+                    object: this.engine.scene.wrap(idMapping[collider.node]),
+                    shape: {
+                        isCapsule: shapeType === 'capsule',
+                        radius: collider.shape[shapeType].radius,
+                        offset: collider.shape[shapeType].offset,
+                        tail: collider.shape[shapeType].tail,
+                    },
+                    cache: {
+                        head: vec3.create(),
+                        tail: vec3.create(),
+                    },
+                };
+            }
+        );
         this._sphereColliders = colliders.filter((c) => !c.shape.isCapsule);
         this._capsuleColliders = colliders.filter((c) => c.shape.isCapsule);
 
-        const colliderGroups = (springBone.colliderGroups || []).map((group) => ({
+        const colliderGroups: {name: string; colliders: SpringChainCollider[]}[] = (
+            springBone.colliderGroups || []
+        ).map((group: any) => ({
             name: group.name,
-            colliders: group.colliders.map((c) => colliders[c]),
+            colliders: group.colliders.map((c: number) => colliders[c]),
         }));
 
         for (const spring of springBone.springs) {
-            const joints = [];
+            const joints: SpringJoint[] = [];
             for (const joint of spring.joints) {
-                const springJoint = {
+                const springJoint: SpringJoint = {
                     hitRadius: 0.0,
                     stiffness: 1.0,
                     gravityPower: 0.0,
                     gravityDir: [0.0, -1.0, 0.0],
                     dragForce: 0.5,
-                    node: null,
+                    node: null as any,
                     state: null,
                 };
                 Object.assign(springJoint, joint);
-                springJoint.node = this.engine.wrapObject(
-                    extensions.idMapping[springJoint.node]
-                );
+                springJoint.node = this.engine.scene.wrap(idMapping[joint.node]);
                 joints.push(springJoint);
             }
 
-            const springChainColliders = (spring.colliderGroups || []).flatMap(
-                (cg) => colliderGroups[cg].colliders
-            );
+            const springChainColliders: SpringChainCollider[] = (
+                spring.colliderGroups || []
+            ).flatMap((cg: number) => colliderGroups[cg].colliders);
             this._springChains.push({
                 name: spring.name,
                 center: spring.center
-                    ? this.engine.wrapObject(extensions.idMapping[spring.center])
+                    ? this.engine.scene.wrap(idMapping[spring.center])
                     : null,
                 joints,
                 sphereColliders: springChainColliders.filter((c) => !c.shape.isCapsule),
@@ -411,30 +537,30 @@ export class Vrm extends Component {
                 const springBoneJoint = springChain.joints[i];
                 const childSpringBoneJoint = springChain.joints[i + 1];
 
-                const springBonePosition = springBoneJoint.node.getTranslationWorld(
+                const springBonePosition = springBoneJoint.node.getPositionWorld(
                     vec3.create()
                 );
-                const childSpringBonePosition =
-                    childSpringBoneJoint.node.getTranslationWorld(vec3.create());
+                const childSpringBonePosition = childSpringBoneJoint.node.getPositionWorld(
+                    vec3.create()
+                );
                 const boneDirection = vec3.subtract(
                     this._tempV3A,
                     springBonePosition,
                     childSpringBonePosition
                 );
-                const state = {
-                    prevTail: childSpringBonePosition,
+                const state: SpringJointState = {
+                    prevTail: vec3.copy(vec3.create(), childSpringBonePosition),
                     currentTail: vec3.copy(vec3.create(), childSpringBonePosition),
-                    initialLocalRotation: quat.copy(
-                        quat.create(),
-                        springBoneJoint.node.rotationLocal
+                    initialLocalRotation: springBoneJoint.node.getRotationLocal(
+                        quat.create()
                     ),
                     initialLocalTransformInvert: quat2.invert(
                         quat2.create(),
-                        springBoneJoint.node.transformLocal
+                        springBoneJoint.node.getTransformLocal(this._tempQuat2)
                     ),
                     boneAxis: vec3.normalize(
                         vec3.create(),
-                        childSpringBoneJoint.node.getTranslationLocal(this._tempV3)
+                        childSpringBoneJoint.node.getPositionLocal(this._tempV3)
                     ),
                     /* Ensure bone length is at least 1cm to avoid jittery behaviour from zero-length bones */
                     boneLength: Math.max(0.01, vec3.length(boneDirection)),
@@ -447,7 +573,7 @@ export class Vrm extends Component {
                     state.prevTailCenter = springChain.center.transformPointInverseWorld(
                         vec3.create(),
                         childSpringBonePosition
-                    );
+                    ) as vec3;
                     state.currentTailCenter = vec3.copy(
                         vec3.create(),
                         childSpringBonePosition
@@ -459,7 +585,7 @@ export class Vrm extends Component {
         }
     }
 
-    update(dt) {
+    update(dt: number) {
         if (!this._initialized) {
             return;
         }
@@ -475,35 +601,35 @@ export class Vrm extends Component {
         this._updateSpringBones(dt);
     }
 
-    _rangeMap(rangeMap, input) {
+    private _rangeMap(rangeMap: LookAtRangeMap, input: number): number {
         const maxValue = rangeMap.inputMaxValue;
         const outputScale = rangeMap.outputScale;
         return (Math.min(input, maxValue) / maxValue) * outputScale;
     }
 
-    _resolveLookAt() {
+    private _resolveLookAt(): void {
         if (!this._lookAt || !this.lookAtTarget) {
             return;
         }
 
-        const lookAtSource = this.bones.head.transformPointWorld(
+        const lookAtSource = this.bones.head!.transformPointWorld(
             this._tempV3A,
             this._lookAt.offsetFromHeadBone
         );
 
-        const lookAtTarget = this.lookAtTarget.getTranslationWorld(this._tempV3B);
+        const lookAtTarget = this.lookAtTarget.getPositionWorld(this._tempV3B);
         const lookAtDirection = vec3.sub(this._tempV3A, lookAtTarget, lookAtSource);
         vec3.normalize(lookAtDirection, lookAtDirection);
 
         /* Convert the direction into LookAt space */
-        this.bones.head.parent.transformVectorInverseWorld(lookAtDirection);
-        const z = vec3.dot(lookAtDirection, this._forwardVector);
-        const x = vec3.dot(lookAtDirection, this._rightVector);
-        const yaw = Math.atan2(x, z) * this._rad2deg;
+        this.bones.head!.parent!.transformVectorInverseWorld(lookAtDirection);
+        const z = vec3.dot(lookAtDirection, ForwardVector);
+        const x = vec3.dot(lookAtDirection, RightVector);
+        const yaw = Math.atan2(x, z) * Rad2Deg;
 
         const xz = Math.sqrt(x * x + z * z);
-        const y = vec3.dot(lookAtDirection, this._upVector);
-        let pitch = Math.atan2(-y, xz) * this._rad2deg;
+        const y = vec3.dot(lookAtDirection, UpVector);
+        let pitch = Math.atan2(-y, xz) * Rad2Deg;
 
         /* Limit pitch */
         if (pitch > 0) {
@@ -522,10 +648,8 @@ export class Vrm extends Component {
             }
 
             const eyeRotation = quat.fromEuler(this._tempQuatA, pitch, yawLeft, 0);
-            this.bones.leftEye.rotationLocal = quat.multiply(
-                eyeRotation,
-                this.restPose.leftEye,
-                eyeRotation
+            this.bones.leftEye.setRotationLocal(
+                quat.multiply(eyeRotation, this.restPose.leftEye, eyeRotation)
             );
         }
 
@@ -539,21 +663,19 @@ export class Vrm extends Component {
             }
 
             const eyeRotation = quat.fromEuler(this._tempQuatA, pitch, yawRight, 0);
-            this.bones.rightEye.rotationLocal = quat.multiply(
-                eyeRotation,
-                this.restPose.rightEye,
-                eyeRotation
+            this.bones.rightEye.setRotationLocal(
+                quat.multiply(eyeRotation, this.restPose.rightEye, eyeRotation)
             );
         }
     }
 
-    _resolveConstraints() {
+    private _resolveConstraints(): void {
         for (const nodeConstraint of this._nodeConstraints) {
             this._resolveConstraint(nodeConstraint);
         }
     }
 
-    _resolveConstraint(nodeConstraint) {
+    private _resolveConstraint(nodeConstraint: any): void {
         const dstRestQuat = nodeConstraint.destinationRestLocalRotation;
         const srcRestQuatInv = nodeConstraint.sourceRestLocalRotationInv;
         const targetQuat = quat.identity(this._tempQuatA);
@@ -606,7 +728,7 @@ export class Vrm extends Component {
             case 'aim':
                 {
                     const dstParentWorldQuat =
-                        nodeConstraint.destination.parent.rotationWorld;
+                        nodeConstraint.destination.parent!.rotationWorld;
                     /* fromVec = aimAxis.applyQuaternion( dstParentWorldQuat * dstRestQuat ) */
                     const fromVec = vec3.transformQuat(
                         this._tempV3A,
@@ -652,15 +774,15 @@ export class Vrm extends Component {
         nodeConstraint.destination.rotationLocal = targetQuat;
     }
 
-    _updateSpringBones(dt) {
+    private _updateSpringBones(dt: number): void {
         /* Pre-compute collider positions */
         this._sphereColliders.forEach(({object, shape, cache}) => {
             const offset = vec3.copy(cache.head, shape.offset);
             object.transformVectorWorld(offset);
-            vec3.add(cache.head, object.getTranslationWorld(this._tempV3), offset);
+            vec3.add(cache.head, object.getPositionWorld(this._tempV3), offset);
         });
         this._capsuleColliders.forEach(({object, shape, cache}) => {
-            const shapeCenter = object.getTranslationWorld(this._tempV3A);
+            const shapeCenter = object.getPositionWorld(this._tempV3A);
             const headOffset = vec3.copy(cache.head, shape.offset);
             object.transformVectorWorld(headOffset);
             vec3.add(cache.head, shapeCenter, headOffset);
@@ -671,11 +793,12 @@ export class Vrm extends Component {
         });
 
         /* Update spring chains */
-        this._springChains.forEach((springChain) => {
+        this._springChains.forEach((springChain: SpringChain) => {
             for (let i = 0; i < springChain.joints.length - 1; ++i) {
                 const joint = springChain.joints[i];
+                if (!joint.state) continue;
                 const parentWorldRotation = joint.node.parent
-                    ? joint.node.parent.rotationWorld
+                    ? joint.node.parent.getRotationWorld(this._tempQuat)
                     : this._identityQuat;
 
                 /* 1. Forces */
@@ -684,18 +807,18 @@ export class Vrm extends Component {
                 if (springChain.center) {
                     vec3.sub(
                         inertia,
-                        joint.state.currentTailCenter,
-                        joint.state.prevTailCenter
+                        joint.state.currentTailCenter!,
+                        joint.state.prevTailCenter!
                     );
                     springChain.center.transformVectorWorld(inertia);
                 } else {
-                    vec3.sub(inertia, joint.state.currentTail, joint.state.prevTail);
+                    vec3.sub(inertia, joint.state!.currentTail, joint.state!.prevTail);
                 }
                 vec3.scale(inertia, inertia, 1.0 - joint.dragForce);
 
                 /* stiffness = deltaTime * parentWorldRotation * localRotation * boneAxis * stiffnessForce; */
-                const stiffness = vec3.copy(this._stiffness, joint.state.boneAxis);
-                vec3.transformQuat(stiffness, stiffness, joint.state.initialLocalRotation);
+                const stiffness = vec3.copy(this._stiffness, joint.state!.boneAxis);
+                vec3.transformQuat(stiffness, stiffness, joint.state!.initialLocalRotation);
                 vec3.transformQuat(stiffness, stiffness, parentWorldRotation);
                 vec3.scale(stiffness, stiffness, dt * joint.stiffness);
 
@@ -707,14 +830,14 @@ export class Vrm extends Component {
                 );
 
                 /* nextTail = currentTail + inertia + stiffness + external; */
-                const nextTail = vec3.copy(this._tempV3A, joint.state.currentTail);
+                const nextTail = vec3.copy(this._tempV3A, joint.state!.currentTail);
                 vec3.add(nextTail, nextTail, inertia);
                 vec3.add(nextTail, nextTail, stiffness);
                 vec3.add(nextTail, nextTail, external);
 
                 /* constrain the length */
                 /* nextTail = worldPosition + (nextTail - worldPosition).normalized * boneLength; */
-                const worldPosition = joint.node.getTranslationWorld(this._tempV3B);
+                const worldPosition = joint.node.getPositionWorld(this._tempV3B);
                 vec3.sub(nextTail, nextTail, worldPosition);
                 vec3.normalize(nextTail, nextTail);
                 vec3.scaleAndAdd(nextTail, worldPosition, nextTail, joint.state.boneLength);
@@ -791,15 +914,15 @@ export class Vrm extends Component {
                 vec3.copy(joint.state.prevTail, joint.state.currentTail);
                 vec3.copy(joint.state.currentTail, nextTail);
                 if (springChain.center) {
-                    vec3.copy(joint.state.prevTailCenter, joint.state.currentTailCenter);
-                    vec3.copy(joint.state.currentTailCenter, nextTail);
+                    vec3.copy(joint.state.prevTailCenter!, joint.state.currentTailCenter!);
+                    vec3.copy(joint.state.currentTailCenter!, nextTail);
                     springChain.center.transformPointInverseWorld(
-                        joint.state.currentTailCenter
+                        joint.state.currentTailCenter!
                     );
                 }
 
                 /* to = (nextTail * (node.parent.worldMatrix * initialLocalMatrix).inverse).normalized */
-                joint.node.parent.transformPointInverseWorld(nextTail);
+                joint.node.parent!.transformPointInverseWorld(nextTail);
                 const nextTailDualQuat = quat2.fromTranslation(this._tempQuat2, nextTail);
                 quat2.multiply(
                     nextTailDualQuat,
@@ -814,19 +937,21 @@ export class Vrm extends Component {
                     joint.state.boneAxis,
                     nextTail
                 );
-                joint.node.rotationLocal = quat.mul(
-                    this._tempQuatA,
-                    joint.state.initialLocalRotation,
-                    jointRotation
+                joint.node.setRotationLocal(
+                    quat.mul(
+                        this._tempQuatA,
+                        joint.state.initialLocalRotation,
+                        jointRotation
+                    )
                 );
             }
         });
     }
 
     /**
-     * @param {boolean} firstPerson Whether the model should render for first person or third person views
+     * @param firstPerson Whether the model should render for first person or third person views
      */
-    set firstPerson(firstPerson) {
+    set firstPerson(firstPerson: boolean) {
         this._firstPersonAnnotations.forEach((annotation) => {
             const visible =
                 firstPerson == annotation.firstPerson ||
