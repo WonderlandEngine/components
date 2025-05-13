@@ -54,8 +54,8 @@ export function setFirstMaterialTexture(
     return false;
 }
 
-export function deg2rad(value:number){
-    return value * Math.PI / 180.0;
+export function deg2rad(value: number) {
+    return (value * Math.PI) / 180.0;
 }
 
 export function rad2deg(value: number) {
