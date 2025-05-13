@@ -15,7 +15,7 @@
         "test:single": "npm run test -- --files",
         "test:watch": "npm run test -- --watch",
         "prepack": "npm run build",
-        "pretty": "prettier --config ./.prettierrc.json --write ./src",
+        "pretty": "prettier --config ./.prettierrc.json --write \"*.ts\" \"*.js\" \"test/*.js\" \"utils/*.ts\"",
         "doc": "typedoc --entryPoints ./index.js --plugin ./typedoc/decorators-plugin.cjs --tsconfig tsconfig.json --json ./doc.json"
     },
     "repository": {
