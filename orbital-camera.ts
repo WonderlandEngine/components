@@ -1,4 +1,4 @@
-import {Component} from '@wonderlandengine/api';
+import {Component, Object3D} from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
 import {deg2rad, rad2deg} from './utils/utils.js';
 import {quat, vec3} from 'gl-matrix';
@@ -52,8 +52,12 @@ export class OrbitalCamera extends Component {
     @property.float(0.9)
     damping = 0.9;
 
+    @property.object()
+    target: Object3D | null = null;
+
     private _mouseDown: boolean = false;
-    private _origin = [0, 0, 0];
+    private _origin = vec3.create();
+    private _originCache = vec3.create();
     private _azimuth = 0;
     private _polar = 45;
 
@@ -65,7 +69,11 @@ export class OrbitalCamera extends Component {
     private _polarSpeed: number = 0;
 
     init() {
-        this.object.getPositionWorld(this._origin);
+        if (this.target) {
+            this.target.getPositionWorld(this._origin);
+        } else {
+            this.object.getPositionWorld(this._origin);
+        }
     }
 
     start(): void {
@@ -113,6 +121,11 @@ export class OrbitalCamera extends Component {
     }
 
     update(): void {
+        // Update the orbit center to the target's position if one is assigned.
+        if (this.target) {
+            this.target.getPositionWorld(this._origin);
+        }
+
         /* Always apply damping, because there's no event for stop moving */
         this._azimuthSpeed *= this.damping;
         this._polarSpeed *= this.damping;
@@ -129,8 +142,13 @@ export class OrbitalCamera extends Component {
         this._polar = Math.min(this.maxElevation, Math.max(this.minElevation, this._polar));
 
         /* Update the camera if there's any speed */
-        if (this._azimuthSpeed !== 0 || this._polarSpeed !== 0) {
+        if (
+            this._azimuthSpeed !== 0 ||
+            this._polarSpeed !== 0 ||
+            vec3.equals(this._origin, this._originCache) === false
+        ) {
             this._updateCamera();
+            vec3.copy(this._originCache, this._origin);
         }
     }
 
