@@ -38,7 +38,7 @@ export class Trail extends Component {
     segments = 50;
 
     /** The time interval before recording a new point */
-    @property.float(50)
+    @property.float(0.1)
     interval = 0.1;
 
     /** The width of the trail (in world space) */
