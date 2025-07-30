@@ -38,7 +38,7 @@ export class Trail extends Component {
     segments = 50;
 
     /** The time interval before recording a new point */
-    @property.float(50)
+    @property.float(0.1)
     interval = 0.1;
 
     /** The width of the trail (in world space) */
@@ -75,6 +75,8 @@ export class Trail extends Component {
         this._timeTillNext = this.interval;
 
         this._trailContainer = this.engine.scene.addObject();
+        /* Workaround for new objects sometimes not being set dirty before 1.4.6 */
+        this._trailContainer.setDirty();
 
         this._meshComp = this._trailContainer.addComponent('mesh')!;
         this._meshComp.material = this.material;
