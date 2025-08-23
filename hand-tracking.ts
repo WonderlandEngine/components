@@ -7,6 +7,7 @@ import {
     Material,
 } from '@wonderlandengine/api';
 import {property} from '@wonderlandengine/api/decorators.js';
+import {VrModeActiveSwitch} from './vr-mode-active-switch.js';
 import {vec3, quat} from 'gl-matrix';
 import {setXRRigidTransformLocal} from './utils/webxr.js';
 
@@ -47,7 +48,8 @@ const invTranslation = vec3.create();
 const invRotation = quat.create();
 const tempVec0 = vec3.create();
 const tempVec1 = vec3.create();
-
+const tempRotation = quat.create();
+const tempScaling = vec3.create();
 /**
  * Easy hand tracking through the WebXR Device API
  * ["Hand Input" API](https://immersive-web.github.io/webxr-hand-input/).
@@ -109,6 +111,31 @@ export class HandTracking extends Component {
     hasPose = false;
     _childrenActive = true;
 
+    onActivate(): void {
+        const vrModeActiveSwitchCompForHand = this.object.getComponent(VrModeActiveSwitch);
+
+        const VrModeActiveSwitchCompForController =
+            this.controllerToDeactivate!.getComponent(VrModeActiveSwitch);
+
+        if (vrModeActiveSwitchCompForHand) vrModeActiveSwitchCompForHand.active = false;
+        if (VrModeActiveSwitchCompForController)
+            VrModeActiveSwitchCompForController.active = false;
+
+        this.setChildrenActive(false, this.controllerToDeactivate!);
+        this.setChildrenActive(false);
+    }
+
+    onDeactivate(): void {
+        const vrModeActiveSwitchCompForHand = this.object.getComponent(VrModeActiveSwitch);
+
+        const VrModeActiveSwitchCompForController =
+            this.controllerToDeactivate!.getComponent(VrModeActiveSwitch);
+
+        if (vrModeActiveSwitchCompForHand) vrModeActiveSwitchCompForHand.active = true;
+        if (VrModeActiveSwitchCompForController)
+            VrModeActiveSwitchCompForController.active = true;
+    }
+
     start() {
         if (!('XRHand' in window)) {
             console.warn('WebXR Hand Tracking not supported by this browser.');
@@ -120,12 +147,12 @@ export class HandTracking extends Component {
             const skin = this.handSkin;
             const jointIds = skin.jointIds;
             /* Map the wrist */
-            this.joints[ORDERED_JOINTS[0]] = this.engine.wrapObject(jointIds[0]);
+            this.joints[ORDERED_JOINTS[0]] = this.engine.scene.wrap(jointIds[0]);
 
             /* Index in ORDERED_JOINTS that we are mapping to our joints */
             /* Skip thumb0 joint, start at thumb1 */
             for (let j = 0; j < jointIds.length; ++j) {
-                const joint = this.engine.wrapObject(jointIds[j]);
+                const joint = this.engine.scene.wrap(jointIds[j]);
                 /* tip joints are only needed for joint rendering, so we skip those while mapping */
                 this.joints[joint.name] = joint;
             }
@@ -154,97 +181,100 @@ export class HandTracking extends Component {
 
     update(dt: number) {
         if (!this.engine.xr) return;
-
         this.hasPose = false;
-        if (this.engine.xr.session.inputSources) {
-            for (let i = 0; i < this.engine.xr.session.inputSources.length; ++i) {
-                const inputSource = this.engine.xr.session.inputSources[i];
-                if (!inputSource?.hand || inputSource?.handedness != this.handedness)
-                    continue;
+        const inputSources = this.engine.xr.session.inputSources;
+        if (!inputSources) return;
+        for (const inputSource of inputSources) {
+            if (inputSource.hand && inputSource.handedness === this.handedness) {
+                // Handle hand tracking input
+                this.updateHandPose(inputSource);
+                this.hasPose = true;
+            }
+        }
+        this.manageVisibility();
+    }
 
-                const wristSpace = (inputSource.hand as unknown as XRHand).get('wrist');
-                if (wristSpace) {
-                    const p = this.engine.xr.frame.getJointPose!(
-                        wristSpace,
-                        this.engine.xr.currentReferenceSpace
-                    );
-                    if (p) {
-                        setXRRigidTransformLocal(this.object, p.transform);
-                    }
-                }
+    updateHandPose(inputSource: XRInputSource) {
+        const wristSpace = (inputSource.hand as unknown as XRHand).get('wrist');
 
-                this.object.getRotationLocal(invRotation);
-                quat.conjugate(invRotation, invRotation);
-                this.object.getPositionLocal(invTranslation);
-
-                /* There is a bone 'wrist', but it just sits on the root
-                 * object. It could have an initial transform we want to
-                 * clear for skinning, though. */
-                this.joints['wrist'].resetTransform();
-
-                /* Wrist is already handled, so start at 1 */
-                for (let j = 0; j < ORDERED_JOINTS.length; ++j) {
-                    const jointName = ORDERED_JOINTS[j];
-                    const joint = this.joints[jointName];
-                    if (!joint) continue;
-
-                    let jointPose = null;
-                    const jointSpace = (inputSource.hand as unknown as XRHand).get(
-                        jointName
-                    );
-                    if (jointSpace) {
-                        jointPose = this.engine.xr.frame.getJointPose!(
-                            jointSpace,
-                            this.engine.xr.currentReferenceSpace
-                        );
-                    }
-                    if (jointPose) {
-                        this.hasPose = true;
-                        joint.resetPositionRotation();
-
-                        joint.translateLocal([
-                            jointPose.transform.position.x - invTranslation[0],
-                            jointPose.transform.position.y - invTranslation[1],
-                            jointPose.transform.position.z - invTranslation[2],
-                        ]);
-                        joint.rotateLocal(invRotation);
-                        joint.rotateObject([
-                            jointPose.transform.orientation.x,
-                            jointPose.transform.orientation.y,
-                            jointPose.transform.orientation.z,
-                            jointPose.transform.orientation.w,
-                        ]);
-
-                        if (!this.handSkin) {
-                            /* Last joint radius of each finger is null */
-                            const r = jointPose.radius || 0.007;
-                            joint.setScalingLocal([r, r, r]);
-                        }
-                    }
-                }
+        if (wristSpace) {
+            const pose = this.engine.xr!.frame!.getJointPose!(
+                wristSpace,
+                this.engine.xr!.currentReferenceSpace
+            );
+            if (pose) {
+                setXRRigidTransformLocal(this.object, pose.transform);
             }
         }
 
-        if (!this.hasPose && this._childrenActive) {
+        this.object.getRotationLocal(invRotation);
+        quat.conjugate(invRotation, invRotation);
+        this.object.getPositionLocal(invTranslation);
+
+        for (const jointName of ORDERED_JOINTS) {
+            const joint = this.joints[jointName];
+            if (!joint) continue;
+
+            const jointSpace = (inputSource.hand as unknown as XRHand).get(jointName);
+            if (!jointSpace) continue;
+
+            const jointPose = this.engine.xr!.frame!.getJointPose!(
+                jointSpace,
+                this.engine.xr!.currentReferenceSpace
+            );
+
+            if (!jointPose) continue;
+            joint.resetPositionRotation();
+            joint.translateLocal([
+                jointPose.transform.position.x - invTranslation[0],
+                jointPose.transform.position.y - invTranslation[1],
+                jointPose.transform.position.z - invTranslation[2],
+            ]);
+            joint.rotateLocal(invRotation);
+
+            tempRotation[0] = jointPose.transform.orientation.x;
+            tempRotation[1] = jointPose.transform.orientation.y;
+            tempRotation[2] = jointPose.transform.orientation.z;
+            tempRotation[3] = jointPose.transform.orientation.w;
+
+            joint.rotateObject(tempRotation);
+
+            if (!this.handSkin) {
+                const radius = jointPose.radius || 0.007;
+                tempScaling[0] = radius;
+                tempScaling[1] = radius;
+                tempScaling[2] = radius;
+                joint.setScalingLocal(tempScaling);
+            }
+        }
+    }
+
+    manageVisibility() {
+        const hasHandPose = this.hasPose;
+
+        // If no hand pose and children are currently active, deactivate them
+        if (!hasHandPose && this._childrenActive) {
             this._childrenActive = false;
 
             if (this.deactivateChildrenWithoutPose) {
-                this.setChildrenActive(false);
+                this.setChildrenActive(false); // Deactivate hand tracking
             }
 
             if (this.controllerToDeactivate) {
-                this.controllerToDeactivate.active = true;
+                this.controllerToDeactivate.active = true; // Activate controller visualization
                 this.setChildrenActive(true, this.controllerToDeactivate);
             }
-        } else if (this.hasPose && !this._childrenActive) {
+        }
+        // If hand pose is available and children are inactive, activate them
+        else if (hasHandPose && !this._childrenActive) {
             this._childrenActive = true;
 
             if (this.deactivateChildrenWithoutPose) {
-                this.setChildrenActive(true);
+                this.setChildrenActive(true); // Activate hand tracking
             }
 
             if (this.controllerToDeactivate) {
-                this.controllerToDeactivate.active = false;
+                this.controllerToDeactivate.active = false; // Deactivate controller visualization
                 this.setChildrenActive(false, this.controllerToDeactivate);
             }
         }
@@ -264,5 +294,26 @@ export class HandTracking extends Component {
         this.joints['index-finger-tip'].getPositionLocal(tempVec0);
         this.joints['thumb-tip'].getPositionLocal(tempVec1);
         return vec3.sqrDist(tempVec0, tempVec1) < 0.001;
+    }
+
+    onSessionEnd() {
+        // Reset visibility states for hand tracking and controllers
+        this._childrenActive = false;
+
+        if (this.controllerToDeactivate) {
+            this.controllerToDeactivate.active = true;
+            this.setChildrenActive(true, this.controllerToDeactivate);
+        }
+
+        // Deactivate hand tracking visualization
+        this.setChildrenActive(false);
+    }
+
+    onSessionStart() {
+        // Initialize state on session start
+        this._childrenActive = false;
+
+        // Ensure visibility is set based on the current input source
+        this.manageVisibility();
     }
 }
