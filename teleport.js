@@ -114,8 +114,8 @@ export class TeleportComponent extends Component {
     }
 
     onDeactivate() {
-        canvas.removeEventListener('mousedown', this.onMouseDown);
-        canvas.removeEventListener('mouseup', this.onMouseUp);
+        canvas.addEventListener('mousedown', this.onMouseDown);
+        canvas.addEventListener('mouseup', this.onMouseUp);
         this.engine.onXRSessionStart.remove(this.onSessionStartCallback);
     }
 
