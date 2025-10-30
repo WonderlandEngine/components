@@ -111,7 +111,7 @@ export class InputProfile extends Component {
         this.engine.onXRSessionStart.add(() => {
             this.engine.xr?.session.addEventListener(
                 'inputsourceschange',
-                this._onInputSourcesChange.bind(this)
+                this._onInputSourcesChange
             );
         });
     }
@@ -119,7 +119,7 @@ export class InputProfile extends Component {
     onDeactivate() {
         this.engine.xr?.session?.removeEventListener(
             'inputsourceschange',
-            this._onInputSourcesChange.bind(this)
+            this._onInputSourcesChange
         );
     }
 
@@ -180,7 +180,7 @@ export class InputProfile extends Component {
      * @param event The XR input source change event.
      * @hidden
      */
-    private _onInputSourcesChange(event: XRInputSourcesChangeEvent) {
+    private _onInputSourcesChange = (event: XRInputSourcesChangeEvent) => {
         if (this._isModelLoaded() && !this.mapToDefaultController) {
             this._setComponentsActive(false);
         }
@@ -211,7 +211,7 @@ export class InputProfile extends Component {
                     console.error(`Failed to load profile from ${this.url}. Reason:`, e);
                 });
         });
-    }
+    };
 
     /**
      * Checks if the 3D controller model is loaded.
