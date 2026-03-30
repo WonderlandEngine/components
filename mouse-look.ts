@@ -9,6 +9,10 @@ const preventDefault = (e: Event) => {
 const TEMP_ROT = new Float32Array(4);
 const ROT_MUL = 180 / Math.PI / 100;
 
+const DOWN_EVENT = 'pointerdown';
+const UP_EVENT = 'pointerup';
+const MOVE_EVENT = 'pointermove';
+
 /**
  * Controls the camera orientation through mouse movement.
  *
@@ -41,37 +45,33 @@ export class MouseLookComponent extends Component {
     private mouseDown = false;
 
     onActivate() {
-        document.addEventListener('mousemove', this.onMouseMove);
+        document.addEventListener(MOVE_EVENT, this.onMouseMove);
 
         const canvas = this.engine.canvas;
         if (this.pointerLockOnClick) {
-            canvas.addEventListener('mousedown', this.requestPointerLock);
+            canvas.addEventListener(DOWN_EVENT, this.requestPointerLock);
         }
 
-        if (this.requireMouseDown) {
-            if (this.mouseButtonIndex === 2) {
-                canvas.addEventListener('contextmenu', preventDefault, false);
-            }
-            canvas.addEventListener('mousedown', this.onMouseDown);
-            canvas.addEventListener('mouseup', this.onMouseUp);
+        if (this.mouseButtonIndex === 2) {
+            canvas.addEventListener('contextmenu', preventDefault, false);
         }
+        canvas.addEventListener(DOWN_EVENT, this.onMouseDown);
+        canvas.addEventListener(UP_EVENT, this.onMouseUp);
     }
 
     onDeactivate() {
-        document.removeEventListener('mousemove', this.onMouseMove);
+        document.removeEventListener(MOVE_EVENT, this.onMouseMove);
 
         const canvas = this.engine.canvas;
         if (this.pointerLockOnClick) {
-            canvas.removeEventListener('mousedown', this.requestPointerLock);
+            canvas.removeEventListener(DOWN_EVENT, this.requestPointerLock);
         }
 
-        if (this.requireMouseDown) {
-            if (this.mouseButtonIndex === 2) {
-                canvas.removeEventListener('contextmenu', preventDefault, false);
-            }
-            canvas.removeEventListener('mousedown', this.onMouseDown);
-            canvas.removeEventListener('mouseup', this.onMouseUp);
+        if (this.mouseButtonIndex === 2) {
+            canvas.removeEventListener('contextmenu', preventDefault, false);
         }
+        canvas.removeEventListener(DOWN_EVENT, this.onMouseDown);
+        canvas.removeEventListener(UP_EVENT, this.onMouseUp);
     }
 
     requestPointerLock = () => {
